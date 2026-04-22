@@ -123,23 +123,39 @@ export default function TabLayout() {
     const [userData, setUserData] = useState({ name: '', code: '' });
 
     useEffect(() => {
-        const fetchUser = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session?.user?.id) {
-                const { data } = await supabase
+        const fetchUser = async (email: string) => {
+            try {
+                const { data, error } = await supabase
                     .from('customers')
-                    .select('name, referral_code')
-                    .eq('email', session.user.email)
+                    .select('name')
+                    .eq('email', email)
                     .single();
+                
+                if (error) throw error;
                 if (data) {
                     setUserData({ 
-                        name: data.name, 
-                        code: data.referral_code || 'GUEST'
+                        name: data.name || 'Cliente', 
+                        code: email.split('@')[0].toUpperCase() || 'GUEST'
                     });
                 }
+            } catch (err) {
+                console.error('Error fetching layout user:', err);
+                // Fallback for names if DB fetch fails but we have session
+                setUserData(prev => ({ ...prev, name: prev.name || 'Invitado' }));
             }
         };
-        fetchUser();
+
+        // Try initial session
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session?.user?.email) fetchUser(session.user.email);
+        });
+
+        // Listen for changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (session?.user?.email) fetchUser(session.user.email);
+        });
+
+        return () => subscription.unsubscribe();
     }, []);
 
     return (

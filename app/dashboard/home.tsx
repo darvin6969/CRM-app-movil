@@ -63,7 +63,7 @@ export default function DashboardScreen() {
                     ...customerData,
                     loyaltyPoints: customerData.loyalty_points || 0,
                     totalPointsEarned: customerData.total_points_earned || customerData.loyalty_points || 0,
-                    referralCode: customerData.referral_code || `${customerData.name.split(' ')[0].toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`,
+                    referralCode: customerData.referral_code || session.user.email?.split('@')[0].toUpperCase() || 'GUEST',
                     joinDate: customerData.join_date,
                     transactions: [],
                     tier: customerData.tier || 'Bronze',
@@ -135,8 +135,11 @@ export default function DashboardScreen() {
 
 
     const customerName = customer.name || 'Cliente';
-    const firstName = customerName.split(' ')[0];
-    const initials = customerName.substring(0, 2);
+    const nameParts = customerName.split(' ');
+    const firstName = nameParts[0];
+    const initials = nameParts.length > 1 
+        ? (nameParts[0][0] + nameParts[1][0]).toUpperCase()
+        : nameParts[0].substring(0, 2).toUpperCase();
 
     return (
         <SafeAreaView className="flex-1 bg-slate-50 dark:bg-black">
@@ -153,15 +156,15 @@ export default function DashboardScreen() {
                 <View className="flex-row justify-between items-center mb-6 mt-2">
                     <View>
                         <Text className="text-slate-500 dark:text-slate-400 text-[10px] font-black tracking-[2px] uppercase mb-1">HOLA DE NUEVO,</Text>
-                        <Text className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter">darvin</Text>
+                        <Text className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter">{firstName.toLowerCase()}</Text>
                     </View>
                     <View className="bg-[#f3f0ff] p-2 rounded-full h-12 w-12 items-center justify-center border border-primary/5">
-                        <Text className="text-primary font-bold text-base uppercase">DA</Text>
+                        <Text className="text-primary font-bold text-base uppercase">{initials}</Text>
                     </View>
                 </View>
 
                 {/* Loyalty Card */}
-                <AnimatedButton activeScale={0.98}>
+                <AnimatedButton activeScale={0.98} onPress={() => router.push('/points-history')}>
                     <LinearGradient 
                         colors={['#7c3aed', '#5b21b6']} 
                         start={{ x: 0, y: 0 }} 
@@ -177,9 +180,11 @@ export default function DashboardScreen() {
                         </View>
 
                         <View className="flex-row justify-between items-start mb-6 z-10">
-                            <BlurView intensity={20} tint="light" className="px-4 py-1.5 rounded-full border border-white/20 overflow-hidden">
-                                <Text className="text-white text-[9px] font-black tracking-widest uppercase">Nivel BRONZE</Text>
-                            </BlurView>
+                            <TouchableOpacity onPress={() => router.push('/tiers')}>
+                                <BlurView intensity={20} tint="light" className="px-4 py-1.5 rounded-full border border-white/20 overflow-hidden">
+                                    <Text className="text-white text-[9px] font-black tracking-widest uppercase">Nivel {customer.tier.toUpperCase()}</Text>
+                                </BlurView>
+                            </TouchableOpacity>
                             <View className="bg-white/20 p-2.5 rounded-2xl border border-white/10">
                                 <Award color="white" size={24} />
                             </View>
@@ -209,7 +214,7 @@ export default function DashboardScreen() {
                         { icon: QrCode, label: "Mi QR", sub: "Ver", color: "#8b5cf6", bg: "bg-purple-500/10", route: '/dashboard/profile' },
                         { icon: ShoppingBag, label: "Premios", sub: "Ver", color: "#3b82f6", bg: "bg-blue-500/10", route: '/dashboard/catalog' },
                         { icon: Tag, label: "Ofertas", sub: "Ver", color: "#f59e0b", bg: "bg-amber-500/10", route: '/dashboard/promotions' },
-                        { icon: Award, label: "Tiers", sub: "Ver", color: "#10b981", bg: "bg-emerald-500/10", route: '/dashboard/profile' },
+                        { icon: Award, label: "Tiers", sub: "Ver", color: "#10b981", bg: "bg-emerald-500/10", route: '/tiers' },
                     ].map((item, idx) => (
                         <AnimatedButton 
                             key={idx} 
@@ -229,7 +234,12 @@ export default function DashboardScreen() {
                     ))}
                 </View>
                 {/* Recent Transactions */}
-                <Text className="text-xl font-black text-slate-900 dark:text-white mb-5 tracking-tight">Actividad Reciente</Text>
+                <View className="flex-row justify-between items-center mb-5 mt-2">
+                    <Text className="text-xl font-black text-slate-900 dark:text-white tracking-tight flex-1" numberOfLines={1}>Actividad Reciente</Text>
+                    <TouchableOpacity onPress={() => router.push('/points-history')} className="ml-4">
+                        <Text className="text-primary font-black text-[10px] uppercase tracking-widest px-2">Ver todo</Text>
+                    </TouchableOpacity>
+                </View>
                 
                 <View className="gap-y-3">
                     {transactions.length === 0 ? (

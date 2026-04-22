@@ -54,12 +54,20 @@ export const QRModal: React.FC<QRModalProps> = ({ visible, onClose, qrValue, use
 
                     <View className="items-center mb-10">
                         <View className="p-8 bg-white rounded-[40px] shadow-2xl shadow-black/20 border-8 border-slate-50 dark:border-zinc-900/50">
-                            <QRCode
-                                value={qrValue}
-                                size={220}
-                                color="#000"
-                                backgroundColor="transparent"
-                            />
+                            {qrValue ? (
+                                <QRCode
+                                    value={qrValue}
+                                    size={220}
+                                    color="#000"
+                                    backgroundColor="transparent"
+                                />
+                            ) : (
+                                <View style={{ width: 220, height: 220, alignItems: 'center', justifyContent: 'center' }}>
+                                    <BlurView intensity={20} tint="light" className="rounded-2xl p-4">
+                                        <Text className="text-slate-400 font-bold text-xs">Cargando...</Text>
+                                    </BlurView>
+                                </View>
+                            )}
                         </View>
                     </View>
 
