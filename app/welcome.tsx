@@ -248,7 +248,7 @@ export default function WelcomeScreen() {
                                 style={{ fontFamily: Platform.OS === 'ios' ? 'Times New Roman' : 'serif' }}
                                 className="text-[52px] font-bold text-slate-900 dark:text-white leading-[50px] tracking-tighter italic"
                             >
-                                Vanguard
+                                Quantica
                             </Text>
                         </Animated.View>
 
@@ -260,7 +260,7 @@ export default function WelcomeScreen() {
                             Gestiona tus beneficios en un solo lugar.
                         </Text>
                         <Text className="text-[14px] font-bold text-slate-500 dark:text-zinc-500 mb-12 leading-relaxed max-w-[85%]">
-                            El ecosistema definitivo para gestionar tus servicios exclusivos con tecnología de vanguardia.
+                            Llevamos la mejor conexión de internet hasta tu hogar con la potencia y velocidad de la fibra óptica.
                         </Text>
 
                         {/* V111: CONTROL PANEL */}
@@ -310,7 +310,7 @@ export default function WelcomeScreen() {
                         </Text>
                         <View className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
                         <Text style={{ fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' }} className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">
-                            VANGUARD_EDITION
+                            QUANTICA_EDITION
                         </Text>
                     </View>
 
