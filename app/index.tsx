@@ -22,20 +22,10 @@ export default function Index() {
                 }
 
                 if (session) {
-                    const { data: profile } = await supabase
-                        .from('customers')
-                        .select('name, phone')
-                        .eq('email', session.user.email)
-                        .maybeSingle();
-
-                    if (!profile || !profile.name || !profile.phone) {
-                        router.replace('/complete-profile');
-                    } else {
-                        // Small delay for smooth transition as seen on Sunday
-                        setTimeout(() => {
-                            router.replace('/dashboard/home' as any);
-                        }, 1000);
-                    }
+                    // Quitamos la validación estricta que mandaba a complete-profile
+                    setTimeout(() => {
+                        router.replace('/dashboard/home' as any);
+                    }, 800);
                 } else {
                     router.replace('/welcome');
                 }

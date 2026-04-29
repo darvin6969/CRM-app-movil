@@ -183,9 +183,9 @@ export default function LoginScreen() {
         setIsLoading(true);
         setError('');
         try {
-            // UPDATED IP: Your Metro server is currently on 192.168.1.9
-            const redirectUrl = 'exp://192.168.1.9:8081/';
-            console.log('Safe Redirect URL for Supabase:', redirectUrl);
+            // Usar el esquema oficial definido en app.json
+            const redirectUrl = Linking.createURL('/oauth-callback', { scheme: 'crm-mobile-app' });
+            console.log('URL de Retorno Oficial:', redirectUrl);
             
             const { data, error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
@@ -200,31 +200,23 @@ export default function LoginScreen() {
                 const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
                 
                 if (result.type === 'success' && result.url) {
-                    // Extract params from the fragment (#)
-                    const hash = result.url.split('#')[1];
-                    if (!hash) throw new Error('No se recibió el token de acceso.');
-                    
-                    const params: Record<string, string> = {};
-                    hash.split('&').forEach(part => {
-                        const chunks = part.split('=');
-                        if (chunks.length === 2) params[chunks[0]] = chunks[1];
-                    });
+                    // Si el navegador vuelve con tokens en la URL, los procesamos aquí mismo
+                    const urlObj = new URL(result.url.replace('#', '?'));
+                    const access_token = urlObj.searchParams.get('access_token');
+                    const refresh_token = urlObj.searchParams.get('refresh_token');
 
-                    if (params.access_token && params.refresh_token) {
-                        const { error: sessionError } = await supabase.auth.setSession({
-                            access_token: params.access_token,
-                            refresh_token: params.refresh_token,
-                        });
-                        if (sessionError) throw sessionError;
-                        
-                        // Move to index to trigger profile check
-                        router.replace('/');
+                    if (access_token && refresh_token) {
+                        await supabase.auth.setSession({ access_token, refresh_token });
+                        router.replace('/dashboard/home');
+                    } else {
+                        // Si no hay tokens directos, dejamos que el archivo oauth-callback haga su magia
+                        router.replace('/oauth-callback');
                     }
                 }
             }
         } catch (err: any) {
             console.error('Google Auth Error:', err);
-            setError(err.message || 'Error al iniciar sesión con Google.');
+            setError('Error al conectar con Google. Reintenta.');
         } finally {
             if (isMounted.current) setIsLoading(false);
         }

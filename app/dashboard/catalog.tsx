@@ -176,9 +176,7 @@ export default function CatalogScreen() {
                             className="rounded-[32px] p-6 mb-8 overflow-hidden border border-white/20 dark:border-white/10 flex-row items-center justify-between shadow-lg shadow-black/5"
                         >
                             <View className="flex-row items-center gap-4">
-                                <View className="bg-primary p-3 rounded-2xl shadow-lg shadow-primary/40">
-                                    <Sparkles color="white" size={24} />
-                                </View>
+
                                 <View>
                                     <Text className="text-slate-900 dark:text-white font-black text-3xl tracking-tighter">{customerPoints}</Text>
                                     <View className="flex-row items-center gap-1">

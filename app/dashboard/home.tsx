@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, RefreshControl, Modal, TouchableOpacity } from 'react-native';
+import { useState, useEffect, useRef } from 'react';
+import { View, Text, ScrollView, ActivityIndicator, RefreshControl, Modal, TouchableOpacity, Vibration, Animated, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
-import { Award, ArrowUpRight, ArrowDownRight, AlertCircle, Sparkles, QrCode, ShoppingBag, Tag, ChevronRight, ArrowDownLeft } from 'lucide-react-native';
+import { Award, ArrowUpRight, ArrowDownRight, AlertCircle, Sparkles, QrCode, ShoppingBag, Tag, ChevronRight, ArrowDownLeft, Bell, X } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useColorScheme } from 'nativewind';
 import { useRouter } from 'expo-router';
@@ -10,6 +10,8 @@ import { supabase } from '../../lib/supabase';
 import { Customer, Transaction, TIERS } from '../../types';
 import { Skeleton, SkeletonCard, SkeletonCircle } from '../../components/Skeleton';
 import { AnimatedButton } from '../../components/AnimatedButton';
+
+const { width } = Dimensions.get('window');
 
 const DashboardSkeleton = () => (
     <View style={{ padding: 24, marginTop: 40 }}>
@@ -37,27 +39,39 @@ export default function DashboardScreen() {
     const [error, setError] = useState('');
     const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
+    
+    // Notificación Push Compacta
+    const [incomingPush, setIncomingPush] = useState<{ title: string; body: string; tier?: string } | null>(null);
+    const [showPushToast, setShowPushToast] = useState(false);
+    const toastAnim = useRef(new Animated.Value(-150)).current;
+
     const { colorScheme } = useColorScheme();
     const isDark = colorScheme === 'dark';
 
     const loadDashboardData = async () => {
         try {
-            setError('');
-            const { data: { session } } = await supabase.auth.getSession();
-
-            if (!session?.user?.email) {
-                setError('No hay sesión activa.');
+            const { data: { session }, error: authError } = await supabase.auth.getSession();
+            
+            if (authError || !session) {
+                console.log('Sesión inválida o expirada, redirigiendo...');
+                await supabase.auth.signOut();
+                router.replace('/login');
                 return;
             }
 
-            // Fetch customer by email
             const { data: customerData, error: customerError } = await supabase
                 .from('customers')
                 .select('*')
-                .eq('email', session.user.email)
+                .eq('id', session.user.id)
                 .single();
 
-            if (customerError) throw customerError;
+            if (customerError) {
+                console.log('Cliente no encontrado, redirigiendo...');
+                await supabase.auth.signOut();
+                router.replace('/login');
+                return;
+            }
+
             if (customerData) {
                 setCustomer({
                     ...customerData,
@@ -71,7 +85,6 @@ export default function DashboardScreen() {
                     phone: customerData.phone || ''
                 });
 
-                // Fetch recent 5 transactions
                 const { data: txData, error: txError } = await supabase
                     .from('transactions')
                     .select('*')
@@ -88,16 +101,68 @@ export default function DashboardScreen() {
             }
         } catch (err: any) {
             console.error('Error fetching dashboard:', err);
-            setError('No pudimos cargar tu información. Intenta de nuevo.');
+            setError('No pudimos cargar tu información.');
         } finally {
             setIsLoading(false);
             setRefreshing(false);
         }
     };
 
+    const showNotification = (data: any) => {
+        setIncomingPush({ 
+            title: data.title, 
+            body: data.body,
+            tier: data.target_tier 
+        });
+        setShowPushToast(true);
+        Vibration.vibrate([0, 100, 100, 100]);
+
+        // Animación de entrada
+        Animated.spring(toastAnim, {
+            toValue: 20,
+            useNativeDriver: true,
+            bounciness: 12
+        }).start();
+
+        // Ocultar después de 6 segundos
+        setTimeout(() => {
+            hideNotification();
+        }, 6000);
+    };
+
+    const hideNotification = () => {
+        Animated.timing(toastAnim, {
+            toValue: -150,
+            duration: 500,
+            useNativeDriver: true
+        }).start(() => {
+            setShowPushToast(false);
+            setIncomingPush(null);
+        });
+    };
+
     useEffect(() => {
         loadDashboardData();
-    }, []);
+
+        const pushSubscription = supabase
+            .channel('any-filter')
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'push_notifications' },
+                (payload) => {
+                    const newPush = payload.new;
+                    const targetTier = newPush.target_tier;
+                    if (targetTier === 'Todos' || (customer && targetTier === customer.tier)) {
+                        showNotification(newPush);
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(pushSubscription);
+        };
+    }, [customer?.tier]);
 
     const onRefresh = () => {
         setRefreshing(true);
@@ -122,24 +187,8 @@ export default function DashboardScreen() {
         );
     }
 
-    // Calculate progress to next tier
-    const tierKeys = Object.keys(TIERS);
-    const currentTierIndex = tierKeys.indexOf(customer.tier || 'Bronze');
-    const nextTierName = tierKeys[currentTierIndex + 1];
-    
-    const earnedPoints = customer.totalPointsEarned || customer.loyaltyPoints || 0;
-    const nextTierPoints = nextTierName ? TIERS[nextTierName as keyof typeof TIERS] : earnedPoints;
-    const progressPercent = nextTierName && nextTierPoints > 0
-        ? (earnedPoints / nextTierPoints) * 100
-        : 100;
-
-
-    const customerName = customer.name || 'Cliente';
-    const nameParts = customerName.split(' ');
-    const firstName = nameParts[0];
-    const initials = nameParts.length > 1 
-        ? (nameParts[0][0] + nameParts[1][0]).toUpperCase()
-        : nameParts[0].substring(0, 2).toUpperCase();
+    const firstName = (customer.name || 'Cliente').split(' ')[0];
+    const initials = (customer.name || 'CL').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 
     return (
         <SafeAreaView className="flex-1 bg-slate-50 dark:bg-black">
@@ -147,12 +196,70 @@ export default function DashboardScreen() {
                 colors={isDark ? ['#4c1d95', '#000000'] : ['#c4b5fd', '#ffffff']}
                 className="absolute inset-0"
             />
+
+            {/* NOTIFICACIÓN TIPO TOAST (COMPACTA) */}
+            {showPushToast && (
+                <Animated.View 
+                    style={{ 
+                        transform: [{ translateY: toastAnim }],
+                        position: 'absolute',
+                        top: 40,
+                        left: 16,
+                        right: 16,
+                        zIndex: 9999,
+                        // Sombra profunda para despegarlo del fondo
+                        shadowColor: "#000",
+                        shadowOffset: { width: 0, height: 10 },
+                        shadowOpacity: 0.5,
+                        shadowRadius: 15,
+                        elevation: 20,
+                    }}
+                >
+                    <TouchableOpacity activeOpacity={0.95} onPress={hideNotification}>
+                        <View className={`rounded-[28px] border-2 flex-row items-center p-5 ${
+                            isDark ? 'bg-zinc-900 border-white/10' : 'bg-white border-slate-100'
+                        }`}>
+                            <View className={`w-1.5 absolute left-0 top-4 bottom-4 rounded-full ${
+                                incomingPush?.tier === 'Gold' ? 'bg-amber-400' : 'bg-blue-500'
+                            }`} />
+                            
+                            <View className={`p-3 rounded-2xl mr-4 ${
+                                incomingPush?.tier === 'Gold' ? 'bg-amber-500/10' : 'bg-blue-500/10'
+                            }`}>
+                                <Bell color={incomingPush?.tier === 'Gold' ? '#fbbf24' : '#3b82f6'} size={24} />
+                            </View>
+
+                            <View className="flex-1">
+                                <Text className={`text-[9px] font-black uppercase tracking-[2px] mb-1 ${
+                                    isDark ? 'text-slate-500' : 'text-slate-400'
+                                }`}>
+                                    NOTIFICACIÓN DEL SISTEMA
+                                </Text>
+                                <Text className={`text-base font-black tracking-tight mb-0.5 ${
+                                    isDark ? 'text-white' : 'text-slate-900'
+                                }`} numberOfLines={1}>
+                                    {incomingPush?.title}
+                                </Text>
+                                <Text className={`text-sm font-bold leading-5 ${
+                                    isDark ? 'text-slate-300' : 'text-slate-600'
+                                }`} numberOfLines={2}>
+                                    {incomingPush?.body}
+                                </Text>
+                            </View>
+
+                            <View className="ml-2 bg-slate-100 dark:bg-white/5 p-2 rounded-full">
+                                <X color={isDark ? "white" : "black"} size={14} opacity={0.5} />
+                            </View>
+                        </View>
+                    </TouchableOpacity>
+                </Animated.View>
+            )}
+
             <ScrollView
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ padding: 24, paddingBottom: 100 }}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={isDark ? "#a78bfa" : "#8b5cf6"} />}
             >
-                {/* Header */}
                 <View className="flex-row justify-between items-center mb-6 mt-2">
                     <View>
                         <Text className="text-slate-500 dark:text-slate-400 text-[10px] font-black tracking-[2px] uppercase mb-1">HOLA DE NUEVO,</Text>
@@ -163,7 +270,6 @@ export default function DashboardScreen() {
                     </View>
                 </View>
 
-                {/* Loyalty Card */}
                 <AnimatedButton activeScale={0.98} onPress={() => router.push('/points-history')}>
                     <LinearGradient 
                         colors={['#7c3aed', '#5b21b6']} 
@@ -171,7 +277,6 @@ export default function DashboardScreen() {
                         end={{ x: 1, y: 1 }}
                         className="rounded-[40px] p-8 shadow-2xl shadow-primary/30 mb-8 overflow-hidden relative"
                     >
-                        {/* Decorative Patterns */}
                         <View className="absolute top-0 right-0 opacity-10">
                             <Sparkles color="white" size={200} />
                         </View>
@@ -180,11 +285,9 @@ export default function DashboardScreen() {
                         </View>
 
                         <View className="flex-row justify-between items-start mb-6 z-10">
-                            <TouchableOpacity onPress={() => router.push('/tiers')}>
-                                <BlurView intensity={20} tint="light" className="px-4 py-1.5 rounded-full border border-white/20 overflow-hidden">
-                                    <Text className="text-white text-[9px] font-black tracking-widest uppercase">Nivel {customer.tier.toUpperCase()}</Text>
-                                </BlurView>
-                            </TouchableOpacity>
+                            <View className="px-4 py-1.5 rounded-full border border-white/20 overflow-hidden">
+                                <Text className="text-white text-[9px] font-black tracking-widest uppercase">Nivel {customer.tier.toUpperCase()}</Text>
+                            </View>
                             <View className="bg-white/20 p-2.5 rounded-2xl border border-white/10">
                                 <Award color="white" size={24} />
                             </View>
@@ -208,7 +311,6 @@ export default function DashboardScreen() {
                     </LinearGradient>
                 </AnimatedButton>
 
-                {/* Vanguard Quick Actions Grid */}
                 <View className="flex-row justify-between gap-x-3 gap-y-3 flex-wrap mb-8">
                     {[
                         { icon: QrCode, label: "Mi QR", sub: "Ver", color: "#8b5cf6", bg: "bg-purple-500/10", route: '/dashboard/profile' },
@@ -233,7 +335,7 @@ export default function DashboardScreen() {
                         </AnimatedButton>
                     ))}
                 </View>
-                {/* Recent Transactions */}
+
                 <View className="flex-row justify-between items-center mb-5 mt-2">
                     <Text className="text-xl font-black text-slate-900 dark:text-white tracking-tight flex-1" numberOfLines={1}>Actividad Reciente</Text>
                     <TouchableOpacity onPress={() => router.push('/points-history')} className="ml-4">
@@ -255,37 +357,33 @@ export default function DashboardScreen() {
                             <Text className="text-slate-400 dark:text-zinc-500 text-center text-xs mt-1">¡Empieza a comprar para ganar puntos!</Text>
                         </BlurView>
                     ) : (
-                        transactions.map((tx, index) => {
-                            const isPositive = ['Earning', 'Referral'].includes(tx.type);
-                            return (
-                                <AnimatedButton 
-                                    key={tx.id} 
-                                    activeScale={0.97} 
-                                    className="mb-1"
-                                    onPress={() => {
-                                        setSelectedTx(tx);
-                                        setShowDetailModal(true);
-                                    }}
-                                >
-                                    <View className="bg-white dark:bg-zinc-900 rounded-[24px] p-4 flex-row justify-between items-center border border-slate-100 dark:border-zinc-800 shadow-sm">
-                                        <View className="flex-row gap-4 items-center flex-1 pr-4">
-                                            <View>
-                                                <Text className="font-bold text-base text-slate-900 dark:text-white mb-0.5" numberOfLines={1}>{tx.description}</Text>
-                                                <Text className="text-slate-500 dark:text-zinc-400 text-xs font-semibold uppercase tracking-wider">{tx.date ? new Date(tx.date).toLocaleDateString() : 'Pendiente'}</Text>
-                                            </View>
+                        transactions.map((tx) => (
+                            <AnimatedButton 
+                                key={tx.id} 
+                                activeScale={0.97} 
+                                className="mb-1"
+                                onPress={() => {
+                                    setSelectedTx(tx);
+                                    setShowDetailModal(true);
+                                }}
+                            >
+                                <View className="bg-white dark:bg-zinc-900 rounded-[24px] p-4 flex-row justify-between items-center border border-slate-100 dark:border-zinc-800 shadow-sm">
+                                    <View className="flex-row gap-4 items-center flex-1 pr-4">
+                                        <View>
+                                            <Text className="font-bold text-base text-slate-900 dark:text-white mb-0.5" numberOfLines={1}>{tx.description}</Text>
+                                            <Text className="text-slate-500 dark:text-zinc-400 text-xs font-semibold uppercase tracking-wider">{tx.date ? new Date(tx.date).toLocaleDateString() : 'Pendiente'}</Text>
                                         </View>
-                                        <Text className={`font-black text-lg ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
-                                            {isPositive ? '+' : ''}{tx.pointsEarned} <Text className="text-xs font-bold opacity-50">pts</Text>
-                                        </Text>
                                     </View>
-                                </AnimatedButton>
-                            );
-                        })
+                                    <Text className={`font-black text-lg ${['Earning', 'Referral'].includes(tx.type) ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
+                                        {['Earning', 'Referral'].includes(tx.type) ? '+' : ''}{tx.pointsEarned} <Text className="text-xs font-bold opacity-50">pts</Text>
+                                    </Text>
+                                </View>
+                            </AnimatedButton>
+                        ))
                     )}
                 </View>
             </ScrollView>
 
-            {/* Transaction Detail Modal */}
             <Modal
                 visible={showDetailModal}
                 transparent={true}
@@ -296,44 +394,15 @@ export default function DashboardScreen() {
                     <View className="w-full bg-white dark:bg-zinc-900 rounded-[40px] p-8 overflow-hidden shadow-2xl border border-slate-100 dark:border-white/5">
                         <View className="items-center">
                             <View className="w-20 h-20 bg-red-50 rounded-3xl items-center justify-center mb-6 shadow-xl shadow-red-500/20">
-                                <ArrowDownLeft color="white" size={40} />
+                                <ArrowDownLeft color="red" size={40} />
                             </View>
-                            
                             <Text className="text-2xl font-black text-slate-900 dark:text-white text-center uppercase tracking-tight mb-2">Detalle de Actividad</Text>
-                            <Text className="text-slate-500 dark:text-zinc-400 text-center text-sm leading-5 mb-8">
-                                Informaci&oacute;n detallada de tu transacci&oacute;n y progreso de lealtad.
-                            </Text>
-
                             <View className="w-full bg-slate-50 dark:bg-white/5 rounded-3xl p-6 border border-slate-100 dark:border-white/5 mb-8">
-                                <View className="flex-row justify-between mb-4">
-                                    <Text className="text-slate-400 dark:text-zinc-500 text-[10px] font-black uppercase tracking-widest">T&iacute;tulo</Text>
-                                    <Text className="text-slate-900 dark:text-white font-bold text-sm text-right flex-1 ml-4">{selectedTx?.description}</Text>
-                                </View>
-                                <View className="flex-row justify-between mb-4">
-                                    <Text className="text-slate-400 dark:text-zinc-500 text-[10px] font-black uppercase tracking-widest">Valor</Text>
-                                    <Text className="text-red-500 font-extrabold text-xl">-{selectedTx?.pointsEarned} PTS</Text>
-                                </View>
-                                <View className="flex-row justify-between">
-                                    <Text className="text-slate-400 dark:text-zinc-500 text-[10px] font-black uppercase tracking-widest">Fecha</Text>
-                                    <Text className="text-slate-900 dark:text-white font-bold text-sm">{selectedTx?.date ? new Date(selectedTx.date).toLocaleDateString() : 'Hoy'}</Text>
-                                </View>
+                                <Text className="text-slate-900 dark:text-white font-bold text-center">{selectedTx?.description}</Text>
+                                <Text className="text-red-500 font-extrabold text-2xl text-center mt-2">-{selectedTx?.pointsEarned} PTS</Text>
                             </View>
-
-                            <View className="w-full bg-primary/5 dark:bg-primary/20 rounded-3xl p-6 border border-primary/10 mb-10">
-                                <Text className="text-primary font-black text-[10px] uppercase tracking-widest mb-3 text-center">Progreso para Silver</Text>
-                                <Text className="text-slate-600 dark:text-white/80 text-center text-xs mb-4">
-                                    Te faltan {1000 - 400} puntos para subir de nivel.
-                                </Text>
-                                <View className="w-full bg-slate-200 dark:bg-black/40 h-2 rounded-full overflow-hidden">
-                                    <View className="bg-primary h-full rounded-full" style={{ width: `40%` }} />
-                                </View>
-                            </View>
-
-                            <TouchableOpacity 
-                                onPress={() => setShowDetailModal(false)}
-                                className="w-full bg-slate-900 dark:bg-white h-16 rounded-[24px] items-center justify-center shadow-xl shadow-black/20"
-                            >
-                                <Text className="text-white dark:text-slate-900 font-black text-lg uppercase tracking-widest">Entendido</Text>
+                            <TouchableOpacity onPress={() => setShowDetailModal(false)} className="w-full bg-slate-900 dark:bg-white h-16 rounded-[24px] items-center justify-center">
+                                <Text className="text-white dark:text-slate-900 font-black">ENTENDIDO</Text>
                             </TouchableOpacity>
                         </View>
                     </View>

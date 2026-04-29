@@ -106,13 +106,7 @@ export default function PointsHistoryScreen() {
                     className="rounded-[32px] overflow-hidden border border-white/20 dark:border-white/10 shadow-lg"
                 >
                     <View className="p-5 flex-row items-center">
-                        <View className={`h-14 w-14 rounded-2xl items-center justify-center mr-4 ${isRedemption ? 'bg-red-500/10' : 'bg-green-500/10'}`}>
-                            {isRedemption ? (
-                                <TrendingDown color="#ef4444" size={24} />
-                            ) : (
-                                <TrendingUp color="#22c55e" size={24} />
-                            )}
-                        </View>
+
                         
                         <View className="flex-1">
                             <View className="flex-row items-center mb-1">
