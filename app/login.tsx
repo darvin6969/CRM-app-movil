@@ -183,9 +183,9 @@ export default function LoginScreen() {
         setIsLoading(true);
         setError('');
         try {
-            // Usar el esquema oficial definido en app.json
-            const redirectUrl = Linking.createURL('/oauth-callback', { scheme: 'crm-mobile-app' });
-            console.log('URL de Retorno Oficial:', redirectUrl);
+            // Usar detección dinámica de IP para máxima estabilidad
+            const redirectUrl = Linking.createURL('/');
+            console.log('Redirecting to Google with:', redirectUrl);
             
             const { data, error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',

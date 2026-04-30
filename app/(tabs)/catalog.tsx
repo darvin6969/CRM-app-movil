@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Gift, AlertCircle, ShoppingBag, Sparkles } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { useColorScheme } from 'nativewind';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { Reward, Customer } from '../../types';
 import { Skeleton, SkeletonCard, SkeletonCircle } from '../../components/Skeleton';
@@ -80,8 +81,13 @@ export default function CatalogScreen() {
         }
     };
 
+    useFocusEffect(
+        useCallback(() => {
+            loadCatalogData();
+        }, [])
+    );
+
     useEffect(() => {
-        loadCatalogData();
     }, []);
 
     const onRefresh = () => {
@@ -102,9 +108,41 @@ export default function CatalogScreen() {
                 { text: "Cancelar", style: "cancel" },
                 {
                     text: "Sí, Canjear",
-                    onPress: () => {
-                        setSuccessMsg(`Has canjeado "${reward.name}" con éxito.`);
-                        setShowSuccess(true);
+                    onPress: async () => {
+                        try {
+                            const { data: { session } } = await supabase.auth.getSession();
+                            if (!session?.user?.email) throw new Error("Inicia sesión primero");
+
+                            // 1. Obtener ID
+                            const { data: customerData } = await supabase
+                                .from('customers')
+                                .select('id, loyalty_points')
+                                .eq('email', session.user.email)
+                                .single();
+
+                            if (!customerData) throw new Error("Perfil no encontrado");
+
+                            // 2. Cálculo
+                            const newPoints = (customerData.loyalty_points || 0) - reward.pointsCost;
+
+                            // 3. ACTUALIZACIÓN VISUAL INMEDIATA
+                            setCustomerPoints(newPoints);
+                            setSuccessMsg(`Has canjeado "${reward.name}" con éxito.`);
+                            setShowSuccess(true);
+
+                            // 4. GUARDAR EN DB (Silenciosamente)
+                            await supabase.from('customers').update({ loyalty_points: newPoints }).eq('id', customerData.id);
+                            await supabase.from('transactions').insert([{
+                                customer_id: customerData.id,
+                                points_earned: -reward.pointsCost,
+                                description: `Canje App: ${reward.name}`
+                            }]);
+
+                        } catch (err: any) {
+                            console.error('Error:', err);
+                            Alert.alert("Error", err.message || "No se pudo canjear.");
+                            loadCatalogData(); // Recargar por si falló algo
+                        }
                     }
                 }
             ]

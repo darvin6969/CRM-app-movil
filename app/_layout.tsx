@@ -7,6 +7,7 @@ import * as Linking from 'expo-linking';
 import '../global.css';
 
 export default function Layout() {
+    const router = useRouter();
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {

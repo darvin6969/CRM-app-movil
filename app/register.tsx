@@ -124,7 +124,13 @@ export default function RegisterScreen() {
                 }
             });
 
-            if (signUpError) throw signUpError;
+            if (signUpError) {
+                if (signUpError.message.includes('already registered')) {
+                    setError('Este correo ya tiene cuenta. Por favor, inicia sesión.');
+                    return;
+                }
+                throw signUpError;
+            }
 
             // 2. Insert into customers table (CRM data)
             const { error: dbError } = await supabase.from('customers').insert([{
@@ -138,8 +144,6 @@ export default function RegisterScreen() {
             }]);
 
             if (dbError) {
-                // If DB insert fails but auth succeeded, we still have a user.
-                // We'll let them complete profile later if needed, but for now throw.
                 console.error('DB Insert Error:', dbError);
             }
             

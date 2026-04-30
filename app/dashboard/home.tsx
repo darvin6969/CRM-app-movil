@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, RefreshControl, Modal, TouchableOpacity, Vibration, Animated, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Award, ArrowUpRight, ArrowDownRight, AlertCircle, Sparkles, QrCode, ShoppingBag, Tag, ChevronRight, ArrowDownLeft, Bell, X } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useColorScheme } from 'nativewind';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { Customer, Transaction, TIERS } from '../../types';
 import { Skeleton, SkeletonCard, SkeletonCircle } from '../../components/Skeleton';
@@ -59,16 +59,33 @@ export default function DashboardScreen() {
                 return;
             }
 
-            const { data: customerData, error: customerError } = await supabase
+            let { data: customerData, error: customerError } = await supabase
                 .from('customers')
                 .select('*')
-                .eq('id', session.user.id)
+                .eq('email', session.user.email)
                 .single();
 
-            if (customerError) {
-                console.log('Cliente no encontrado, redirigiendo...');
-                await supabase.auth.signOut();
-                router.replace('/login');
+            if (customerError || !customerData) {
+                console.log('Cliente no encontrado por Email, intentando por ID...');
+                const { data: retryData } = await supabase
+                    .from('customers')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .maybeSingle();
+                customerData = retryData;
+            }
+
+            if (!customerData) {
+                console.log('Cliente no encontrado, permitiendo entrada con perfil básico...');
+                setCustomer({
+                    id: session.user.id,
+                    name: session.user.user_metadata?.full_name || 'Usuario',
+                    email: session.user.email,
+                    loyaltyPoints: 0,
+                    tier: 'Bronze',
+                    status: 'Activo'
+                } as any);
+                setIsLoading(false);
                 return;
             }
 
@@ -141,8 +158,13 @@ export default function DashboardScreen() {
         });
     };
 
+    useFocusEffect(
+        useCallback(() => {
+            loadDashboardData();
+        }, [])
+    );
+
     useEffect(() => {
-        loadDashboardData();
 
         const pushSubscription = supabase
             .channel('any-filter')
