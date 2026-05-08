@@ -76,6 +76,7 @@ export default function CatalogScreen() {
             const { data: rewardsData, error: rewardsError } = await supabase
                 .from('rewards')
                 .select('*')
+                .eq('active', true)
                 .order('points_cost', { ascending: true });
 
             if (rewardsError) throw rewardsError;
@@ -123,10 +124,49 @@ export default function CatalogScreen() {
             message: `¿Estás seguro que deseas canjear ${reward.pointsCost} puntos por "${reward.name}"?`,
             type: 'info',
             actionLabel: "Sí, Canjear",
-            onAction: () => {
+            onAction: async () => {
                 setAlertConfig(prev => ({ ...prev, visible: false }));
-                setSuccessMsg(`Has canjeado "${reward.name}" con éxito.`);
-                setShowSuccess(true);
+                
+                try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (!session?.user?.email) throw new Error("Inicia sesión primero");
+
+                    // 1. Obtener ID
+                    const { data: customerData } = await supabase
+                        .from('customers')
+                        .select('id, loyalty_points')
+                        .eq('email', session.user.email)
+                        .single();
+
+                    if (!customerData) throw new Error("Perfil no encontrado");
+
+                    // 2. Cálculo
+                    const newPoints = (customerData.loyalty_points || 0) - reward.pointsCost;
+
+                    // 3. ACTUALIZACIÓN VISUAL INMEDIATA
+                    setCustomerPoints(newPoints);
+                    setSuccessMsg(`Has canjeado "${reward.name}" con éxito.`);
+                    setShowSuccess(true);
+
+                    // 4. GUARDAR EN DB
+                    await supabase.from('customers').update({ loyalty_points: newPoints }).eq('id', customerData.id);
+                    await supabase.from('transactions').insert([{
+                        customer_id: customerData.id,
+                        points_earned: -reward.pointsCost,
+                        description: `Canje App: ${reward.name}`
+                    }]);
+
+                } catch (err: any) {
+                    console.error('Error:', err);
+                    setAlertConfig({
+                        visible: true,
+                        title: "Error",
+                        message: err.message || "No se pudo procesar el canje.",
+                        type: 'error',
+                        actionLabel: "Cerrar"
+                    });
+                    loadCatalogData(); // Recargar por si falló algo
+                }
             }
         });
     };

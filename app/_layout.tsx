@@ -15,11 +15,15 @@ export default function Layout() {
             console.log('LAYOUT - Auth Event:', event);
             
             if (event === 'SIGNED_OUT') {
-                router.replace('/welcome' as any);
+                setTimeout(() => {
+                    router.replace('/welcome' as any);
+                }, 100);
             }
             if (event === 'SIGNED_IN' && session) {
-                console.log('Usuario autenticado, mandando a home');
-                router.replace('/dashboard/home');
+                console.log('Usuario autenticado, mandando a sincronización');
+                setTimeout(() => {
+                    router.replace('/');
+                }, 100);
             }
         });
 

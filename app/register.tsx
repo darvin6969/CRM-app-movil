@@ -62,7 +62,11 @@ export default function RegisterScreen() {
 
     useEffect(() => {
         isMounted.current = true;
-        return () => { isMounted.current = false; };
+        WebBrowser.warmUpAsync().catch(() => {});
+        return () => { 
+            isMounted.current = false; 
+            WebBrowser.coolDownAsync().catch(() => {});
+        };
     }, []);
     
     // Elite Toast States
@@ -163,7 +167,7 @@ export default function RegisterScreen() {
         setIsLoading(true);
         setError('');
         try {
-            const redirectUrl = Linking.createURL('/');
+            const redirectUrl = Linking.createURL('oauth-callback');
             const { data, error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
@@ -177,7 +181,7 @@ export default function RegisterScreen() {
                 const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
                 
                 if (result.type === 'success' && result.url) {
-                    const hash = result.url.split('#')[1];
+                    const hash = result.url.split('#')[1] || result.url.split('?')[1];
                     if (!hash) throw new Error('No se recibió el token.');
                     
                     const params: Record<string, string> = {};
@@ -186,14 +190,24 @@ export default function RegisterScreen() {
                         if (chunks.length === 2) params[chunks[0]] = chunks[1];
                     });
 
+                    if (params.error) {
+                        throw new Error(params.error_description || 'Error de autenticación desde Google.');
+                    }
+
                     if (params.access_token && params.refresh_token) {
                         const { error: sessionError } = await supabase.auth.setSession({
                             access_token: params.access_token,
                             refresh_token: params.refresh_token,
                         });
                         if (sessionError) throw sessionError;
-                        router.replace('/');
+                        // La redirección la maneja automáticamente _layout.tsx al detectar SIGNED_IN
+                    } else {
+                        throw new Error('No se encontraron tokens válidos.');
                     }
+                } else if (result.type === 'success') {
+                    // Esperar a que el router intercepte el link
+                } else {
+                    setIsLoading(false);
                 }
             }
         } catch (err: any) {

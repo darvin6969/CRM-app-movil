@@ -61,6 +61,7 @@ export default function CatalogScreen() {
             const { data: rewardsData, error: rewardsError } = await supabase
                 .from('rewards')
                 .select('*')
+                .eq('active', true)
                 .order('points_cost', { ascending: true });
 
             if (rewardsError) throw rewardsError;

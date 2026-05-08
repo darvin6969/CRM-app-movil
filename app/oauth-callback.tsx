@@ -16,8 +16,8 @@ export default function OAuthCallback() {
                 const { data: { session } } = await supabase.auth.getSession();
                 
                 if (session) {
-                    console.log('Sesión encontrada, saltando al Dashboard');
-                    router.replace('/dashboard/home');
+                    console.log('Sesión encontrada, enviando a pantalla de sincronización');
+                    router.replace('/');
                 } else {
                     console.log('No se encontró sesión tras el callback, volviendo a login');
                     router.replace('/login');

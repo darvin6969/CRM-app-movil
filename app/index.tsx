@@ -22,10 +22,30 @@ export default function Index() {
                 }
 
                 if (session) {
-                    // Quitamos la validación estricta que mandaba a complete-profile
-                    setTimeout(() => {
-                        router.replace('/dashboard/home' as any);
-                    }, 800);
+                    try {
+                        // Verificamos si el usuario ya tiene un perfil completo en el CRM
+                        const { data: existingCustomer } = await supabase
+                            .from('customers')
+                            .select('id, name, phone')
+                            .eq('email', session.user.email)
+                            .maybeSingle();
+
+                        setTimeout(() => {
+                            // Si existe y tiene teléfono, ya está registrado completamente
+                            if (existingCustomer && existingCustomer.phone) {
+                                router.replace('/dashboard/home' as any);
+                            } else {
+                                // Si no existe o le falta el teléfono, lo mandamos a completar su perfil
+                                router.replace('/complete-profile' as any);
+                            }
+                        }, 800);
+
+                    } catch (syncError) {
+                        console.error('Error verificando perfil:', syncError);
+                        setTimeout(() => {
+                            router.replace('/complete-profile' as any);
+                        }, 800);
+                    }
                 } else {
                     router.replace('/welcome');
                 }

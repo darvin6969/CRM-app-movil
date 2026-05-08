@@ -64,7 +64,12 @@ export default function LoginScreen() {
 
     useEffect(() => {
         isMounted.current = true;
-        return () => { isMounted.current = false; };
+        // Pre-calentar el navegador interno para evitar que se congele en Android
+        WebBrowser.warmUpAsync().catch(() => {});
+        return () => { 
+            isMounted.current = false; 
+            WebBrowser.coolDownAsync().catch(() => {});
+        };
     }, []);
 
     const welcomeFade = useRef(new Animated.Value(0)).current;
@@ -150,7 +155,7 @@ export default function LoginScreen() {
                     setWelcomeName(profile.name.split(' ')[0]);
                     handleWelcomeTransition();
                 } else {
-                    router.replace('/dashboard/home' as any);
+                    router.replace('/');
                 }
             }
         } catch (err) {
@@ -184,7 +189,9 @@ export default function LoginScreen() {
         setError('');
         try {
             // Usar detección dinámica de IP para máxima estabilidad
-            const redirectUrl = Linking.createURL('/');
+            // IMPORTANTE: No usar slash al inicio ('oauth-callback' en vez de '/oauth-callback')
+            // para evitar el bug de doble slash (//oauth-callback) que confunde a Expo Go en Android.
+            const redirectUrl = Linking.createURL('oauth-callback');
             console.log('Redirecting to Google with:', redirectUrl);
             
             const { data, error } = await supabase.auth.signInWithOAuth({
@@ -200,18 +207,35 @@ export default function LoginScreen() {
                 const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
                 
                 if (result.type === 'success' && result.url) {
-                    // Si el navegador vuelve con tokens en la URL, los procesamos aquí mismo
-                    const urlObj = new URL(result.url.replace('#', '?'));
-                    const access_token = urlObj.searchParams.get('access_token');
-                    const refresh_token = urlObj.searchParams.get('refresh_token');
+                    const hash = result.url.split('#')[1] || result.url.split('?')[1];
+                    if (!hash) throw new Error('No se recibió el token.');
+                    
+                    const params: Record<string, string> = {};
+                    hash.split('&').forEach(part => {
+                        const chunks = part.split('=');
+                        if (chunks.length === 2) params[chunks[0]] = chunks[1];
+                    });
 
-                    if (access_token && refresh_token) {
-                        await supabase.auth.setSession({ access_token, refresh_token });
-                        router.replace('/dashboard/home');
-                    } else {
-                        // Si no hay tokens directos, dejamos que el archivo oauth-callback haga su magia
-                        router.replace('/oauth-callback');
+                    if (params.error) {
+                        throw new Error(params.error_description || 'Error de autenticación desde Google.');
                     }
+
+                    if (params.access_token && params.refresh_token) {
+                        await supabase.auth.setSession({ 
+                            access_token: params.access_token, 
+                            refresh_token: params.refresh_token 
+                        });
+                        // La redirección la maneja automáticamente _layout.tsx al detectar SIGNED_IN
+                    } else {
+                        throw new Error('No se encontraron tokens válidos.');
+                    }
+                } else if (result.type === 'success') {
+                    // The browser closed and returned success, but no URL.
+                    // Expo Router handles the deep link in the background.
+                    // Just show loading and let it route.
+                } else {
+                    // User canceled or dismissed
+                    setIsLoading(false);
                 }
             }
         } catch (err: any) {
