@@ -25,6 +25,8 @@ function CustomTabBar({ state, descriptors, navigation, onQRPress, isDark }: any
     // Index mapping: 0:Home, 1:Catalog, 2:QR(Static), 3:Promotions, 4:Profile
     
     const renderTab = (route: any, index: number) => {
+        if (!route || !descriptors || !descriptors[route.key]) return null;
+        
         const { options } = descriptors[route.key];
         const label = options.title !== undefined ? options.title : route.name;
         const isFocused = state.index === index;
@@ -80,8 +82,8 @@ function CustomTabBar({ state, descriptors, navigation, onQRPress, isDark }: any
                 shadowRadius: 15,
             }}
         >
-            {renderTab(state.routes[0], 0)}
-            {renderTab(state.routes[1], 1)}
+            {state.routes[0] && renderTab(state.routes[0], 0)}
+            {state.routes[1] && renderTab(state.routes[1], 1)}
             
             {/* INJECTED QR BUTTON IN THE MIDDLE */}
             <TouchableOpacity
@@ -109,8 +111,8 @@ function CustomTabBar({ state, descriptors, navigation, onQRPress, isDark }: any
                 </View>
             </TouchableOpacity>
 
-            {renderTab(state.routes[2], 2)}
-            {renderTab(state.routes[3], 3)}
+            {state.routes[2] && renderTab(state.routes[2], 2)}
+            {state.routes[3] && renderTab(state.routes[3], 3)}
         </View>
     );
 }
@@ -161,6 +163,7 @@ export default function TabLayout() {
     return (
         <View style={{ flex: 1 }}>
             <MaterialTabs
+                key={isDark ? 'dark-tabs' : 'light-tabs'}
                 tabBarPosition="bottom"
                 tabBar={(props) => (
                     <CustomTabBar 

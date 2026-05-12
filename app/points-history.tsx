@@ -28,9 +28,6 @@ export default function PointsHistoryScreen() {
         try {
             const { data: { session } } = await supabase.auth.getSession();
             if (session?.user?.id) {
-                // In a real app, we'd join with customers to get customerId, 
-                // but here we assume 'transactions' has user_id or we filter by customer
-                // Let's first get the customer profile to get the customer ID
                 const { data: customer } = await supabase
                     .from('customers')
                     .select('id')
@@ -106,8 +103,6 @@ export default function PointsHistoryScreen() {
                     className="rounded-[32px] overflow-hidden border border-white/20 dark:border-white/10 shadow-lg"
                 >
                     <View className="p-5 flex-row items-center">
-
-                        
                         <View className="flex-1">
                             <View className="flex-row items-center mb-1">
                                 <Clock color={isDark ? "#94a3b8" : "#64748b"} size={10} className="mr-1" />
@@ -136,7 +131,7 @@ export default function PointsHistoryScreen() {
     return (
         <View className="flex-1">
             <LinearGradient
-                colors={isDark ? ['#4c1d95', '#000000'] : ['#c4b5fd', '#ffffff']}
+                colors={(isDark ? ['#4c1d95', '#000000'] : ['#c4b5fd', '#ffffff']) as any}
                 className="absolute inset-0"
             />
             

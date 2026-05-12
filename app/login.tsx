@@ -16,6 +16,8 @@ import { TermsModal } from '../components/TermsModal';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import * as Haptics from 'expo-haptics';
+import { makeRedirectUri } from 'expo-auth-session';
+import * as QueryParams from 'expo-auth-session/build/QueryParams';
 
 try {
     WebBrowser.maybeCompleteAuthSession();
@@ -172,75 +174,78 @@ export default function LoginScreen() {
         setIsLoading(true);
         setError('');
         try {
-            const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: Linking.createURL('/login'),
+            const cleanEmail = email.trim().toLowerCase();
+            const { error: resetError } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+                redirectTo: 'crm-mobile-app://reset-password',
             });
             if (resetError) throw resetError;
             setError('Se ha enviado un correo para restablecer tu contraseña');
         } catch (err: any) {
-            setError(err.message || 'Error al enviar el correo de recuperación');
+            console.error('Full Reset Error:', err);
+            if (err.message?.includes('recovery email')) {
+                setError('Límite de correos alcanzado. Por favor intenta de nuevo en una hora o revisa tu configuración de Supabase.');
+            } else {
+                setError(err.message || 'Error al enviar el correo de recuperación');
+            }
         } finally {
             if (isMounted.current) setIsLoading(false);
         }
+    };
+
+    const createSessionFromUrl = async (url: string) => {
+        const { params, errorCode } = QueryParams.getQueryParams(url);
+        
+        if (errorCode) throw new Error(errorCode);
+        const { access_token, refresh_token, code } = params;
+
+        if (access_token && refresh_token) {
+            const { data, error } = await supabase.auth.setSession({ access_token, refresh_token });
+            if (error) throw error;
+            return data.session;
+        }
+
+        if (code) {
+            const { data, error } = await supabase.auth.exchangeCodeForSession(String(code));
+            if (error) throw error;
+            return data.session;
+        }
+        throw new Error('No se recibieron tokens ni código de autenticación.');
     };
 
     const handleGoogleLogin = async () => {
         setIsLoading(true);
         setError('');
         try {
-            // Usar detección dinámica de IP para máxima estabilidad
-            // IMPORTANTE: No usar slash al inicio ('oauth-callback' en vez de '/oauth-callback')
-            // para evitar el bug de doble slash (//oauth-callback) que confunde a Expo Go en Android.
-            const redirectUrl = Linking.createURL('oauth-callback');
-            console.log('Redirecting to Google with:', redirectUrl);
+            const redirectTo = makeRedirectUri({
+                scheme: 'crm-mobile-app',
+                path: 'oauth-callback',
+            });
+            console.log('Redirect URL:', redirectTo);
             
             const { data, error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: redirectUrl,
+                    redirectTo,
                     skipBrowserRedirect: true,
                 }
             });
             if (error) throw error;
 
             if (data?.url) {
-                const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+                const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
                 
                 if (result.type === 'success' && result.url) {
-                    const hash = result.url.split('#')[1] || result.url.split('?')[1];
-                    if (!hash) throw new Error('No se recibió el token.');
-                    
-                    const params: Record<string, string> = {};
-                    hash.split('&').forEach(part => {
-                        const chunks = part.split('=');
-                        if (chunks.length === 2) params[chunks[0]] = chunks[1];
-                    });
-
-                    if (params.error) {
-                        throw new Error(params.error_description || 'Error de autenticación desde Google.');
-                    }
-
-                    if (params.access_token && params.refresh_token) {
-                        await supabase.auth.setSession({ 
-                            access_token: params.access_token, 
-                            refresh_token: params.refresh_token 
-                        });
-                        // La redirección la maneja automáticamente _layout.tsx al detectar SIGNED_IN
-                    } else {
-                        throw new Error('No se encontraron tokens válidos.');
-                    }
+                    await createSessionFromUrl(result.url);
+                    // La redirección la maneja automáticamente _layout.tsx al detectar SIGNED_IN
                 } else if (result.type === 'success') {
-                    // The browser closed and returned success, but no URL.
                     // Expo Router handles the deep link in the background.
-                    // Just show loading and let it route.
                 } else {
-                    // User canceled or dismissed
                     setIsLoading(false);
                 }
             }
         } catch (err: any) {
             console.error('Google Auth Error:', err);
-            setError('Error al conectar con Google. Reintenta.');
+            setError('Error al conectar con Google. Revisa la configuración OAuth.');
         } finally {
             if (isMounted.current) setIsLoading(false);
         }

@@ -1,40 +1,56 @@
 import { useEffect } from 'react';
 import { View, ActivityIndicator, Text } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as Linking from 'expo-linking';
+import * as QueryParams from 'expo-auth-session/build/QueryParams';
 import { supabase } from '../lib/supabase';
 
 export default function OAuthCallback() {
-    const router = useRouter();
+  const router = useRouter();
 
-    useEffect(() => {
-        const forceLogin = async () => {
-            console.log('Callback activado, forzando entrada...');
-            try {
-                // Pequeña espera para que Supabase registre el token en el almacenamiento
-                await new Promise(resolve => setTimeout(resolve, 1500));
-                
-                const { data: { session } } = await supabase.auth.getSession();
-                
-                if (session) {
-                    console.log('Sesión encontrada, enviando a pantalla de sincronización');
-                    router.replace('/');
-                } else {
-                    console.log('No se encontró sesión tras el callback, volviendo a login');
-                    router.replace('/login');
-                }
-            } catch (err) {
-                console.error('Error en forceLogin:', err);
-                router.replace('/login');
-            }
-        };
+  useEffect(() => {
+    const handleCallback = async () => {
+      try {
+        const url = await Linking.getInitialURL();
 
-        forceLogin();
-    }, []);
+        if (!url) {
+          router.replace('/login');
+          return;
+        }
 
-    return (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }}>
-            <ActivityIndicator size="large" color="#8b5cf6" />
-            <Text style={{ color: '#fff', marginTop: 20 }}>Sincronizando con Google...</Text>
-        </View>
-    );
+        const { params, errorCode } = QueryParams.getQueryParams(url);
+
+        if (errorCode) throw new Error(errorCode);
+
+        const { access_token, refresh_token, code } = params;
+
+        if (access_token && refresh_token) {
+          const { error } = await supabase.auth.setSession({
+            access_token,
+            refresh_token,
+          });
+
+          if (error) throw error;
+        } else if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(String(code));
+          if (error) throw error;
+        }
+
+        // Si llegó hasta aquí, redirigimos a la pantalla central para validar existencia
+        router.replace('/');
+      } catch (error) {
+        console.error('Error en OAuth callback:', error);
+        router.replace('/login');
+      }
+    };
+
+    handleCallback();
+  }, []);
+
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }}>
+      <ActivityIndicator size="large" color="#8b5cf6" />
+      <Text style={{ color: '#fff', marginTop: 20 }}>Sincronizando con Google...</Text>
+    </View>
+  );
 }
