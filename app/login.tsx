@@ -268,8 +268,13 @@ export default function LoginScreen() {
                         {/* Theme Toggle Button */}
                         <View className="flex-row justify-end mt-4 mb-2">
                             <TouchableOpacity 
-                                onPress={toggleColorScheme}
-                                className="w-12 h-12 bg-white/40 dark:bg-white/10 rounded-2xl items-center justify-center border border-white/20 dark:border-white/10 shadow-sm"
+                                onPress={() => {
+                                    // Feedback inmediato
+                                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                                    toggleColorScheme();
+                                }}
+                                className="w-12 h-12 bg-black/5 dark:bg-white/10 items-center justify-center"
+                                style={{ borderRadius: 24, overflow: 'hidden' }}
                             >
                                 {isDark ? (
                                     <Sun size={22} color="#ffffff" />

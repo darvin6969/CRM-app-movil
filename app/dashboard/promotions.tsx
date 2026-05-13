@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, ScrollView, RefreshControl, Image, Share, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, Image, Share, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Gift, Calendar, Tag, Sparkles, Rocket, Clock, ChevronRight, Copy } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,43 +12,7 @@ import { AnimatedButton } from '../../components/AnimatedButton';
 import { SuccessOverlay } from '../../components/SuccessOverlay';
 import { AlertModal } from '../../components/AlertModal';
 
-const MOCK_PROMOTIONS: Promotion[] = [
-    {
-        id: '1',
-        title: '¡Doble Puntaje este Finde!',
-        description: 'Acumula x2 en cada compra superior a $50. Válido sábado y domingo.',
-        type: 'featured',
-        pointsMultiplier: 2,
-        image: 'https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=500',
-        category: 'Destacados'
-    },
-    {
-        id: '2',
-        title: '20% Off Accesorios',
-        description: 'Usa el código QNT-ACC20 en tu próxima compra.',
-        type: 'coupon',
-        couponCode: 'QNT-ACC20',
-        discountPercentage: 20,
-        category: 'Moda'
-    },
-    {
-        id: '3',
-        title: 'Quantica Tech Day',
-        description: 'Sorteos, demos y puntos gratis para asistentes.',
-        type: 'event',
-        startDate: '2026-04-15',
-        image: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?q=80&w=500',
-        category: 'Eventos'
-    },
-    {
-        id: '4',
-        title: 'Noche de Cócteles VIP',
-        description: '2x1 para miembros Gold y Platinum.',
-        type: 'featured',
-        image: 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?q=80&w=500',
-        category: 'Destacados'
-    }
-];
+// Removemos los datos de ejemplo
 
 const CATEGORIES = ['Todo', 'Destacados', 'Cupones', 'Eventos', 'Moda', 'Tech'];
 
@@ -61,6 +25,10 @@ export default function PromotionsScreen() {
     const [successMsg, setSuccessMsg] = useState('');
     const { colorScheme } = useColorScheme();
     const isDark = colorScheme === 'dark';
+
+    const [promoCodeInput, setPromoCodeInput] = useState('');
+    const [isRedeeming, setIsRedeeming] = useState(false);
+    const [currentUser, setCurrentUser] = useState<any>(null);
 
     const [alertConfig, setAlertConfig] = useState<{
         visible: boolean;
@@ -83,8 +51,7 @@ export default function PromotionsScreen() {
                 .order('created_at', { ascending: false });
 
             if (error || !data || data.length === 0) {
-                // Fallback to Mocks
-                setPromotions(MOCK_PROMOTIONS);
+                setPromotions([]);
             } else {
                 setPromotions(data.map((p: any) => ({
                     id: p.id,
@@ -97,7 +64,7 @@ export default function PromotionsScreen() {
                 })));
             }
         } catch (e) {
-            setPromotions(MOCK_PROMOTIONS);
+            setPromotions([]);
         } finally {
             setIsLoading(false);
             setRefreshing(false);
@@ -105,6 +72,14 @@ export default function PromotionsScreen() {
     };
 
     useEffect(() => {
+        const fetchUser = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user?.email) {
+                const { data } = await supabase.from('customers').select('*').eq('email', session.user.email).single();
+                if (data) setCurrentUser(data);
+            }
+        };
+        fetchUser();
         loadData();
     }, []);
 
@@ -120,6 +95,90 @@ export default function PromotionsScreen() {
             message: `El código ${code} se ha copiado al portapapeles. ¡Úsalo en tu próxima compra!`,
             type: 'success'
         });
+    };
+
+    const handleRedeem = async () => {
+        const code = promoCodeInput.trim().toUpperCase();
+        if (!code) return;
+        if (!currentUser) return setAlertConfig({ visible: true, title: 'Error', message: 'No se pudo identificar tu usuario. Por favor reinicia la app.', type: 'error' });
+
+        setIsRedeeming(true);
+        try {
+            // 1. Fetch promo code
+            const { data: promo, error: promoError } = await supabase
+                .from('promo_codes')
+                .select('*')
+                .eq('code', code)
+                .eq('is_active', true)
+                .single();
+
+            if (promoError || !promo) {
+                throw new Error('Código inválido o inactivo.');
+            }
+
+            // 2. Check expiration
+            if (promo.expires_at && new Date(promo.expires_at) < new Date()) {
+                throw new Error('Este código ya ha expirado.');
+            }
+
+            // 3. Check global limits
+            if (promo.max_uses && promo.times_used >= promo.max_uses) {
+                throw new Error('Este código ha alcanzado el límite máximo de usos.');
+            }
+
+            // 4. Check one-time use per customer
+            if (promo.is_one_time) {
+                const { data: usage } = await supabase
+                    .from('promo_usages')
+                    .select('id')
+                    .eq('promo_code_id', promo.id)
+                    .eq('customer_id', currentUser.id)
+                    .single();
+                
+                if (usage) {
+                    throw new Error('Ya has canjeado este código anteriormente.');
+                }
+            }
+
+            // 5. Apply reward
+            const { error: insertUsageError } = await supabase.from('promo_usages').insert([{
+                promo_code_id: promo.id,
+                customer_id: currentUser.id,
+                customer_name: currentUser.name
+            }]);
+            if (insertUsageError) throw new Error('Error al registrar uso. Inténtalo de nuevo.');
+
+            // Update times used
+            await supabase.from('promo_codes').update({ times_used: promo.times_used + 1 }).eq('id', promo.id);
+
+            // Update points
+            const newPoints = (currentUser.points || 0) + promo.reward_points;
+            await supabase.from('customers').update({ points: newPoints }).eq('id', currentUser.id);
+
+            // Insert points history
+            await supabase.from('points_history').insert([{
+                customer_id: currentUser.id,
+                points_change: promo.reward_points,
+                reason: `Canje de código: ${code}`,
+                type: 'earned'
+            }]);
+
+            // Actualizar estado local
+            setCurrentUser({ ...currentUser, points: newPoints });
+            setSuccessMsg(`¡Felicidades! Has ganado ${promo.reward_points} puntos.`);
+            setShowSuccess(true);
+            setPromoCodeInput('');
+            
+        } catch (error: any) {
+            setAlertConfig({
+                visible: true,
+                title: 'No se pudo canjear',
+                message: error.message || 'Error al procesar el código',
+                type: 'warning'
+            });
+        } finally {
+            setIsRedeeming(false);
+        }
     };
 
     const filteredPromos = promotions.filter(p => 
@@ -143,6 +202,41 @@ export default function PromotionsScreen() {
                 <View className="px-6 pt-6 pb-2">
                     <Text className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter">Ofertas</Text>
                     <Text className="text-slate-500 dark:text-slate-400 font-bold uppercase text-[10px] tracking-[4px] mt-1">Beneficios Quantica</Text>
+                </View>
+
+                {/* Redeem Section */}
+                <View className="px-6 mb-6 mt-2 z-10">
+                    <BlurView 
+                        intensity={isDark ? 20 : 60} 
+                        tint={isDark ? "dark" : "light"}
+                        className="rounded-[32px] p-6 border border-white/20 dark:border-white/10 shadow-lg"
+                    >
+                        <Text className="text-slate-900 dark:text-white font-black text-lg mb-4">¿Tienes un código?</Text>
+                        <View className="flex-row items-center gap-x-3">
+                            <View className="flex-1 bg-black/5 dark:bg-white/5 rounded-2xl h-14 justify-center px-5 border border-black/5 dark:border-white/5">
+                                <TextInput
+                                    className="text-slate-900 dark:text-white font-bold text-base uppercase"
+                                    placeholder="EJ: VERANO24"
+                                    placeholderTextColor={isDark ? "#94a3b8" : "#64748b"}
+                                    value={promoCodeInput}
+                                    onChangeText={setPromoCodeInput}
+                                    autoCapitalize="characters"
+                                    editable={!isRedeeming}
+                                />
+                            </View>
+                            <TouchableOpacity 
+                                onPress={handleRedeem}
+                                disabled={isRedeeming || !promoCodeInput.trim()}
+                                className={`h-14 px-6 rounded-2xl justify-center items-center shadow-lg transition-all ${isRedeeming || !promoCodeInput.trim() ? 'bg-primary/50' : 'bg-primary shadow-primary/30'}`}
+                            >
+                                {isRedeeming ? (
+                                    <ActivityIndicator color="white" />
+                                ) : (
+                                    <Text className="text-white font-black uppercase text-xs tracking-widest">Canjear</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </BlurView>
                 </View>
 
                 {/* Categories Scroll */}
@@ -278,6 +372,14 @@ export default function PromotionsScreen() {
                 message={alertConfig.message}
                 type={alertConfig.type}
                 onClose={() => setAlertConfig(prev => ({ ...prev, visible: false }))}
+                isDark={isDark}
+            />
+
+            <SuccessOverlay 
+                visible={showSuccess}
+                title="¡Código Canjeado!"
+                message={successMsg}
+                onClose={() => setShowSuccess(false)}
                 isDark={isDark}
             />
         </View>

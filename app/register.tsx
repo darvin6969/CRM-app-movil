@@ -131,8 +131,8 @@ export default function RegisterScreen() {
             });
 
             if (signUpError) {
-                if (signUpError.message.includes('already registered')) {
-                    setError('Este correo ya tiene cuenta. Por favor, inicia sesión.');
+                if (signUpError.message.includes('already registered') || signUpError.message.includes('already exists')) {
+                    setError('Parece que ya te registramos en nuestro local. Revisa tu correo electrónico para activar tu cuenta, o dale a "Inicia Sesión" -> "Olvidé mi contraseña".');
                     return;
                 }
                 throw signUpError;

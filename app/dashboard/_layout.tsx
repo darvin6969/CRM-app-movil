@@ -5,6 +5,7 @@ import { View, TouchableOpacity, Platform, Dimensions, Text } from 'react-native
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useState, useEffect } from 'react';
 import { QRModal } from '../../components/QRModal';
+import { LiveRaffleModal } from '../../components/LiveRaffleModal';
 import { supabase } from '../../lib/supabase';
 import { useColorScheme } from 'nativewind';
 
@@ -203,6 +204,7 @@ export default function TabLayout() {
                 userName={userData.name}
                 isDark={isDark}
             />
+            <LiveRaffleModal />
         </View>
     );
 }
