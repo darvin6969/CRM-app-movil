@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, RefreshControl, Modal, TouchableOpacity, Vibration, Animated, Dimensions } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, RefreshControl, Modal, TouchableOpacity, Vibration, Animated, Dimensions, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Award, ArrowUpRight, ArrowDownRight, AlertCircle, Sparkles, QrCode, ShoppingBag, Tag, ChevronRight, ArrowDownLeft, Bell, X } from 'lucide-react-native';
@@ -40,9 +40,11 @@ export default function DashboardScreen() {
     const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
     
-    // Notificación Push Compacta
-    const [incomingPush, setIncomingPush] = useState<{ title: string; body: string; tier?: string } | null>(null);
+    // Notificación Push Compacta y Pop-up
+    const [incomingPush, setIncomingPush] = useState<{ id?: string; title: string; body: string; tier?: string; image_url?: string; action_text?: string; action_url?: string } | null>(null);
     const [showPushToast, setShowPushToast] = useState(false);
+    const [showPushPopup, setShowPushPopup] = useState(false);
+    const [dismissedPromos, setDismissedPromos] = useState<string[]>([]);
     const toastAnim = useRef(new Animated.Value(-150)).current;
 
     const { colorScheme } = useColorScheme();
@@ -86,6 +88,7 @@ export default function DashboardScreen() {
                     status: 'Activo'
                 } as any);
                 setIsLoading(false);
+                await checkActivePromotion('Bronze');
                 return;
             }
 
@@ -115,6 +118,7 @@ export default function DashboardScreen() {
                     customerId: tx.customer_id,
                     pointsEarned: tx.points_earned
                 })));
+                await checkActivePromotion(customerData.tier || 'Bronze');
             }
         } catch (err: any) {
             console.error('Error fetching dashboard:', err);
@@ -125,26 +129,85 @@ export default function DashboardScreen() {
         }
     };
 
-    const showNotification = (data: any) => {
-        setIncomingPush({ 
-            title: data.title, 
-            body: data.body,
-            tier: data.target_tier 
+    const displayPopup = async (promoData: any) => {
+        setIncomingPush({
+            id: promoData.id,
+            title: promoData.title || '',
+            body: promoData.body || '',
+            tier: promoData.target_tier,
+            image_url: promoData.image_url,
+            action_text: promoData.action_text,
+            action_url: promoData.action_url
         });
-        setShowPushToast(true);
-        Vibration.vibrate([0, 100, 100, 100]);
+        setShowPushPopup(true);
+        if (promoData.id) {
+            try {
+                await supabase.rpc('increment_promo_view', { promo_id: promoData.id });
+            } catch (e) {
+                console.log('No se pudo incrementar las vistas (RPC no disponible o error)');
+            }
+        }
+    };
 
-        // Animación de entrada
-        Animated.spring(toastAnim, {
-            toValue: 20,
-            useNativeDriver: true,
-            bounciness: 12
-        }).start();
+    const checkActivePromotion = async (userTier: string) => {
+        try {
+            const now = new Date().toISOString();
+            // Obtener la promoción más reciente con imagen activa (no expirada y que ya inició)
+            const { data, error } = await supabase
+                .from('push_notifications')
+                .select('*')
+                .not('image_url', 'is', null)
+                .or(`expires_at.is.null,expires_at.gt.${now}`)
+                .or(`start_date.is.null,start_date.lte.${now}`)
+                .order('created_at', { ascending: false })
+                .limit(20); // Consultamos varias para poder filtrar por cumpleaños
 
-        // Ocultar después de 6 segundos
-        setTimeout(() => {
-            hideNotification();
-        }, 6000);
+            if (error) {
+                console.error('Error al obtener promoción activa:', error);
+                return;
+            }
+
+            if (data && data.length > 0) {
+                const today = new Date();
+                const isBirthday = customer?.birth_date && new Date(customer.birth_date).getMonth() === today.getMonth() && new Date(customer.birth_date).getDate() === today.getDate();
+                
+                const promo = data.find((p: any) => p.target_tier === 'Todos' || p.target_tier === userTier || (p.target_tier === 'Cumpleañeros' && isBirthday));
+                
+                if (promo && !dismissedPromos.includes(promo.id)) {
+                    displayPopup(promo);
+                }
+            }
+        } catch (e) {
+            console.error('Error en checkActivePromotion:', e);
+        }
+    };
+
+    const showNotification = (data: any) => {
+        if (data.image_url) {
+            displayPopup(data);
+            Vibration.vibrate([0, 200, 100, 200]);
+        } else {
+            setIncomingPush({ 
+                id: data.id,
+                title: data.title, 
+                body: data.body,
+                tier: data.target_tier
+            });
+            setShowPushToast(true);
+            Vibration.vibrate([0, 100, 100, 100]);
+
+            // Animación de entrada
+            Animated.spring(toastAnim, {
+                toValue: 20,
+                useNativeDriver: true,
+                bounciness: 12
+            }).start();
+
+            // Ocultar después de 6 segundos
+            setTimeout(() => {
+                hideNotification();
+            }, 6000);
+        }
     };
 
     const hideNotification = () => {
@@ -156,6 +219,14 @@ export default function DashboardScreen() {
             setShowPushToast(false);
             setIncomingPush(null);
         });
+    };
+
+    const hidePopup = () => {
+        if (incomingPush?.id) {
+            setDismissedPromos(prev => [...prev, incomingPush.id!]);
+        }
+        setShowPushPopup(false);
+        setIncomingPush(null);
     };
 
     useFocusEffect(
@@ -174,7 +245,13 @@ export default function DashboardScreen() {
                 (payload) => {
                     const newPush = payload.new;
                     const targetTier = newPush.target_tier;
-                    if (targetTier === 'Todos' || (customer && targetTier === customer.tier)) {
+                    const now = new Date();
+                    const isFuture = newPush.start_date && new Date(newPush.start_date) > now;
+                    
+                    if (isFuture) return;
+
+                    const isBirthday = customer?.birth_date && new Date(customer.birth_date).getMonth() === now.getMonth() && new Date(customer.birth_date).getDate() === now.getDate();
+                    if (targetTier === 'Todos' || (customer && targetTier === customer.tier) || (targetTier === 'Cumpleañeros' && isBirthday)) {
                         showNotification(newPush);
                     }
                 }
@@ -184,7 +261,7 @@ export default function DashboardScreen() {
         return () => {
             supabase.removeChannel(pushSubscription);
         };
-    }, [customer?.tier]);
+    }, [customer?.tier, customer?.birth_date]);
 
     const onRefresh = () => {
         setRefreshing(true);
@@ -429,6 +506,79 @@ export default function DashboardScreen() {
                         </View>
                     </View>
                 </View>
+            </Modal>
+
+            {/* POPUP DE PROMOCIONES CON IMAGEN */}
+            <Modal
+                visible={showPushPopup}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={hidePopup}
+            >
+                <TouchableOpacity 
+                    className="flex-1 bg-black/85 items-center justify-center p-6"
+                    activeOpacity={1}
+                    onPress={hidePopup}
+                >
+                    <TouchableOpacity activeOpacity={1} onPress={() => {}} className="w-full max-w-[340px]">
+                        <View className="bg-white dark:bg-zinc-900 rounded-[32px] overflow-hidden shadow-2xl border border-slate-100 dark:border-white/5 relative">
+                            {incomingPush?.image_url && (
+                                <Image 
+                                    source={{ uri: incomingPush.image_url }} 
+                                    className="w-full h-[320px]"
+                                    resizeMode="cover"
+                                />
+                            )}
+                            
+                            <TouchableOpacity 
+                                onPress={hidePopup} 
+                                style={{ 
+                                    position: 'absolute', 
+                                    top: 16, 
+                                    right: 16, 
+                                    zIndex: 10, 
+                                    backgroundColor: 'rgba(0,0,0,0.5)', 
+                                    padding: 8, 
+                                    borderRadius: 99 
+                                }}
+                            >
+                                <X color="white" size={16} />
+                            </TouchableOpacity>
+
+                            {((incomingPush?.title && incomingPush.title.trim() !== '') || (incomingPush?.body && incomingPush.body.trim() !== '') || (incomingPush?.action_text && incomingPush.action_text.trim() !== '')) ? (
+                                <View className="p-6">
+                                    <Text className="text-[9px] font-black uppercase tracking-[2px] mb-2 text-primary">
+                                        {incomingPush?.tier === 'Cumpleañeros' ? '¡FELIZ CUMPLEAÑOS!' : 'NUEVA PROMOCIÓN'}
+                                    </Text>
+                                    {incomingPush?.title && incomingPush.title.trim() !== '' && (
+                                        <Text className="text-xl font-black tracking-tight mb-2 text-slate-900 dark:text-white leading-tight">
+                                            {incomingPush.title}
+                                        </Text>
+                                    )}
+                                    {incomingPush?.body && incomingPush.body.trim() !== '' && (
+                                        <Text className="text-sm font-bold text-slate-500 dark:text-zinc-400 leading-5">
+                                            {incomingPush.body}
+                                        </Text>
+                                    )}
+                                    {incomingPush?.action_text && incomingPush.action_text.trim() !== '' && (
+                                        <TouchableOpacity 
+                                            className="mt-4 w-full bg-violet-600 py-3.5 rounded-xl items-center justify-center shadow-lg shadow-violet-600/30"
+                                            onPress={() => {
+                                                if (incomingPush.action_url) {
+                                                    import('react-native').then(({ Linking }) => {
+                                                        Linking.openURL(incomingPush.action_url!).catch(err => console.error("Error opening URL", err));
+                                                    });
+                                                }
+                                            }}
+                                        >
+                                            <Text className="text-white font-black text-sm uppercase tracking-wider">{incomingPush.action_text}</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
+                            ) : null}
+                        </View>
+                    </TouchableOpacity>
+                </TouchableOpacity>
             </Modal>
         </SafeAreaView>
     );

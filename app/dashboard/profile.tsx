@@ -183,7 +183,7 @@ export default function ProfileScreen() {
                         <Text className="text-3xl font-black text-slate-900 dark:text-white mt-4 tracking-tight">{customer.name}</Text>
                         <View className="flex-row items-center mt-1">
                             <Star size={14} color="#f59e0b" fill="#f59e0b" />
-                            <Text className="text-slate-500 dark:text-slate-400 font-bold ml-1 uppercase text-[10px] tracking-widest">{customer.tier} Member</Text>
+                            <Text className="text-slate-500 dark:text-slate-400 font-bold ml-1 uppercase text-[10px] tracking-widest">Nivel {customer.tier}</Text>
                         </View>
                     </View>
 
