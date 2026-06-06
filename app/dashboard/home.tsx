@@ -13,6 +13,11 @@ import { AnimatedButton } from '../../components/AnimatedButton';
 
 const { width } = Dimensions.get('window');
 
+// Variable global en memoria para guardar las promos cerradas durante la sesión activa.
+// Esto asegura que si el usuario navega a otra pantalla y vuelve al inicio, 
+// no le vuelva a salir. Si cierra la app por completo y la vuelve a abrir, esto se reinicia.
+const sessionDismissedPromos = new Set<string>();
+
 const DashboardSkeleton = () => (
     <View style={{ padding: 24, marginTop: 40 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 32 }}>
@@ -44,7 +49,6 @@ export default function DashboardScreen() {
     const [incomingPush, setIncomingPush] = useState<{ id?: string; title: string; body: string; tier?: string; image_url?: string; action_text?: string; action_url?: string } | null>(null);
     const [showPushToast, setShowPushToast] = useState(false);
     const [showPushPopup, setShowPushPopup] = useState(false);
-    const [dismissedPromos, setDismissedPromos] = useState<string[]>([]);
     const toastAnim = useRef(new Animated.Value(-150)).current;
 
     const { colorScheme } = useColorScheme();
@@ -173,7 +177,7 @@ export default function DashboardScreen() {
                 
                 const promo = data.find((p: any) => p.target_tier === 'Todos' || p.target_tier === userTier || (p.target_tier === 'Cumpleañeros' && isBirthday));
                 
-                if (promo && !dismissedPromos.includes(promo.id)) {
+                if (promo && !sessionDismissedPromos.has(promo.id)) {
                     displayPopup(promo);
                 }
             }
@@ -223,7 +227,7 @@ export default function DashboardScreen() {
 
     const hidePopup = () => {
         if (incomingPush?.id) {
-            setDismissedPromos(prev => [...prev, incomingPush.id!]);
+            sessionDismissedPromos.add(incomingPush.id);
         }
         setShowPushPopup(false);
         setIncomingPush(null);

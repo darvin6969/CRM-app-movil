@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "crm_mobile_app",
+    "name": "Quantica",
     "slug": "crm_mobile_app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -17,10 +17,8 @@
     "android": {
       "package": "com.quantica.crmmobileapp",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#1e1b4b",
+        "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false
     },
@@ -41,6 +39,12 @@
       "eas": {
         "projectId": "e1cc5fda-1fcd-4628-a2e3-383069f0f126"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/e1cc5fda-1fcd-4628-a2e3-383069f0f126"
     }
   }
 }
