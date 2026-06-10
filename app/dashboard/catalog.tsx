@@ -11,6 +11,7 @@ import { Skeleton } from '../../components/Skeleton';
 import { AnimatedButton } from '../../components/AnimatedButton';
 import { SuccessOverlay } from '../../components/SuccessOverlay';
 import { AlertModal } from '../../components/AlertModal';
+import { RewardDetailModal } from '../../components/RewardDetailModal';
 
 const CatalogSkeleton = () => (
     <View style={{ padding: 20, marginTop: 10 }}>
@@ -36,6 +37,8 @@ export default function CatalogScreen() {
     const [error, setError] = useState('');
     const [showSuccess, setShowSuccess] = useState(false);
     const [successMsg, setSuccessMsg] = useState('');
+    const [selectedReward, setSelectedReward] = useState<Reward | null>(null);
+    const [showRewardModal, setShowRewardModal] = useState(false);
     const { colorScheme } = useColorScheme();
     const isDark = colorScheme === 'dark';
 
@@ -106,70 +109,53 @@ export default function CatalogScreen() {
         loadCatalogData();
     };
 
-    const handleRedeem = (reward: Reward) => {
-        if (customerPoints < reward.pointsCost) {
+    const processRedeem = async (reward: Reward) => {
+        setShowRewardModal(false);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.user?.email) throw new Error("Inicia sesión primero");
+
+            // 1. Obtener ID
+            const { data: customerData } = await supabase
+                .from('customers')
+                .select('id, loyalty_points')
+                .eq('email', session.user.email)
+                .single();
+
+            if (!customerData) throw new Error("Perfil no encontrado");
+
+            if ((customerData.loyalty_points || 0) < reward.pointsCost) {
+                throw new Error("Puntos insuficientes para este canje.");
+            }
+
+            // 2. Cálculo
+            const newPoints = (customerData.loyalty_points || 0) - reward.pointsCost;
+
+            // 3. ACTUALIZACIÓN VISUAL INMEDIATA
+            setCustomerPoints(newPoints);
+            setSuccessMsg(`Has canjeado "${reward.name}" con éxito.`);
+            setShowSuccess(true);
+
+            // 4. GUARDAR EN DB
+            await supabase.from('customers').update({ loyalty_points: newPoints }).eq('id', customerData.id);
+            await supabase.from('transactions').insert([{
+                customer_id: customerData.id,
+                points_earned: -reward.pointsCost,
+                description: `Canje App: ${reward.name}`,
+                type: 'Redemption'
+            }]);
+
+        } catch (err: any) {
+            console.error('Error:', err);
             setAlertConfig({
                 visible: true,
-                title: "Puntos Insuficientes",
-                message: `Necesitas ${reward.pointsCost - customerPoints} puntos más para canjear este premio. ¡Sigue acumulando!`,
-                type: 'warning',
-                actionLabel: "Entendido"
+                title: "Error",
+                message: err.message || "No se pudo procesar el canje.",
+                type: 'error',
+                actionLabel: "Cerrar"
             });
-            return;
+            loadCatalogData(); // Recargar por si falló algo
         }
-
-        setAlertConfig({
-            visible: true,
-            title: "Confirmar Canje",
-            message: `¿Estás seguro que deseas canjear ${reward.pointsCost} puntos por "${reward.name}"?`,
-            type: 'info',
-            actionLabel: "Sí, Canjear",
-            onAction: async () => {
-                setAlertConfig(prev => ({ ...prev, visible: false }));
-                
-                try {
-                    const { data: { session } } = await supabase.auth.getSession();
-                    if (!session?.user?.email) throw new Error("Inicia sesión primero");
-
-                    // 1. Obtener ID
-                    const { data: customerData } = await supabase
-                        .from('customers')
-                        .select('id, loyalty_points')
-                        .eq('email', session.user.email)
-                        .single();
-
-                    if (!customerData) throw new Error("Perfil no encontrado");
-
-                    // 2. Cálculo
-                    const newPoints = (customerData.loyalty_points || 0) - reward.pointsCost;
-
-                    // 3. ACTUALIZACIÓN VISUAL INMEDIATA
-                    setCustomerPoints(newPoints);
-                    setSuccessMsg(`Has canjeado "${reward.name}" con éxito.`);
-                    setShowSuccess(true);
-
-                    // 4. GUARDAR EN DB
-                    await supabase.from('customers').update({ loyalty_points: newPoints }).eq('id', customerData.id);
-                    await supabase.from('transactions').insert([{
-                        customer_id: customerData.id,
-                        points_earned: -reward.pointsCost,
-                        description: `Canje App: ${reward.name}`,
-                        type: 'Redemption'
-                    }]);
-
-                } catch (err: any) {
-                    console.error('Error:', err);
-                    setAlertConfig({
-                        visible: true,
-                        title: "Error",
-                        message: err.message || "No se pudo procesar el canje.",
-                        type: 'error',
-                        actionLabel: "Cerrar"
-                    });
-                    loadCatalogData(); // Recargar por si falló algo
-                }
-            }
-        });
     };
 
     if (isLoading) {
@@ -249,7 +235,10 @@ export default function CatalogScreen() {
                                     <AnimatedButton 
                                         key={reward.id} 
                                         className="w-[48%] mb-2"
-                                        onPress={() => handleRedeem(reward)}
+                                        onPress={() => {
+                                            setSelectedReward(reward);
+                                            setShowRewardModal(true);
+                                        }}
                                     >
                                         <BlurView 
                                             intensity={isDark ? 15 : 40}
@@ -323,6 +312,15 @@ export default function CatalogScreen() {
                 actionLabel={alertConfig.actionLabel}
                 onAction={alertConfig.onAction}
                 onClose={() => setAlertConfig(prev => ({ ...prev, visible: false }))}
+                isDark={isDark}
+            />
+
+            <RewardDetailModal
+                visible={showRewardModal}
+                reward={selectedReward}
+                customerPoints={customerPoints}
+                onClose={() => setShowRewardModal(false)}
+                onRedeem={() => selectedReward && processRedeem(selectedReward)}
                 isDark={isDark}
             />
         </View>
