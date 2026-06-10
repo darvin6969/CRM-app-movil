@@ -216,7 +216,7 @@ export default function PromotionsScreen() {
                             <View className="flex-1 bg-black/5 dark:bg-white/5 rounded-2xl h-14 justify-center px-5 border border-black/5 dark:border-white/5">
                                 <TextInput
                                     className="text-slate-900 dark:text-white font-bold text-base uppercase"
-                                    placeholder="EJ: VERANO24"
+                                    placeholder="Escribe aquí..."
                                     placeholderTextColor={isDark ? "#94a3b8" : "#64748b"}
                                     value={promoCodeInput}
                                     onChangeText={setPromoCodeInput}

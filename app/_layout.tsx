@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { View, ActivityIndicator, Text } from 'react-native';
 import { supabase } from '../lib/supabase';
 import * as Linking from 'expo-linking';
-import { registerForPushNotificationsAsync, savePushToken } from '../lib/notifications';
+import { registerForPushNotificationsAsync, savePushToken, scheduleInactivityReminder } from '../lib/notifications';
 import '../global.css';
 
 export default function Layout() {
@@ -18,6 +18,34 @@ export default function Layout() {
     useEffect(() => {
         isMounted.current = true;
         
+        const handleDeepLink = async (event: { url: string }) => {
+            const url = event.url;
+            if (!url) return;
+            
+            const accessTokenMatch = url.match(/access_token=([^&]+)/);
+            const refreshTokenMatch = url.match(/refresh_token=([^&]+)/);
+            
+            if (accessTokenMatch && refreshTokenMatch) {
+                const access_token = accessTokenMatch[1];
+                const refresh_token = refreshTokenMatch[1];
+                
+                const { error } = await supabase.auth.setSession({
+                    access_token,
+                    refresh_token
+                });
+                
+                if (!error && url.includes('type=recovery')) {
+                    router.replace('/reset-password' as any);
+                }
+            }
+        };
+
+        Linking.getInitialURL().then(url => {
+            if (url) handleDeepLink({ url });
+        });
+
+        const linkingSub = Linking.addEventListener('url', handleDeepLink);
+
         const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange(async (event, session) => {
             console.log('LAYOUT - Auth Event:', event);
             
@@ -37,18 +65,6 @@ export default function Layout() {
                 }, 200);
             }
             if (event === 'SIGNED_IN' && session) {
-                console.log('Usuario autenticado, registrando notificaciones...');
-                
-                // Registro de Notificaciones Push (solo si estamos montados)
-                try {
-                    const token = await registerForPushNotificationsAsync();
-                    if (token && isMounted.current) {
-                        await savePushToken(token);
-                    }
-                } catch (err) {
-                    console.warn('Aviso: Notificaciones no configuradas:', err);
-                }
-
                 setTimeout(() => {
                     if (isMounted.current) router.replace('/');
                 }, 200);
@@ -58,6 +74,7 @@ export default function Layout() {
         return () => {
             isMounted.current = false;
             authSub.unsubscribe();
+            linkingSub.remove();
         };
     }, []);
 

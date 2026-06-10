@@ -10,6 +10,7 @@ import { supabase } from '../../lib/supabase';
 import { Customer, Transaction, TIERS } from '../../types';
 import { Skeleton, SkeletonCard, SkeletonCircle } from '../../components/Skeleton';
 import { AnimatedButton } from '../../components/AnimatedButton';
+import { registerForPushNotificationsAsync, savePushToken } from '../../lib/notifications';
 
 const { width } = Dimensions.get('window');
 
@@ -122,6 +123,17 @@ export default function DashboardScreen() {
                     customerId: tx.customer_id,
                     pointsEarned: tx.points_earned
                 })));
+                
+                // --- REGISTRO DE PUSH NOTIFICATIONS AQUÍ ---
+                try {
+                    const pushToken = await registerForPushNotificationsAsync();
+                    if (pushToken) {
+                        await savePushToken(pushToken);
+                    }
+                } catch (pushErr) {
+                    console.error('Error in push registration from home:', pushErr);
+                }
+
                 await checkActivePromotion(customerData.tier || 'Bronze');
             }
         } catch (err: any) {
@@ -363,7 +375,11 @@ export default function DashboardScreen() {
                 contentContainerStyle={{ padding: 24, paddingBottom: 100 }}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={isDark ? "#a78bfa" : "#8b5cf6"} />}
             >
-                <View className="flex-row justify-between items-center mb-6 mt-2">
+                <TouchableOpacity 
+                    activeOpacity={0.7} 
+                    onPress={() => router.push('/dashboard/profile' as any)}
+                    className="flex-row justify-between items-center mb-6 mt-2"
+                >
                     <View>
                         <Text className="text-slate-500 dark:text-slate-400 text-[10px] font-black tracking-[2px] uppercase mb-1">HOLA DE NUEVO,</Text>
                         <Text className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter">{firstName.toLowerCase()}</Text>
@@ -371,7 +387,7 @@ export default function DashboardScreen() {
                     <View className="bg-[#f3f0ff] p-2 rounded-full h-12 w-12 items-center justify-center border border-primary/5">
                         <Text className="text-primary font-bold text-base uppercase">{initials}</Text>
                     </View>
-                </View>
+                </TouchableOpacity>
 
                 <AnimatedButton activeScale={0.98} onPress={() => router.push('/points-history')}>
                     <LinearGradient 
@@ -419,7 +435,7 @@ export default function DashboardScreen() {
                         { icon: QrCode, label: "Mi QR", sub: "Ver", color: "#8b5cf6", bg: "bg-purple-500/10", route: '/dashboard/profile' },
                         { icon: ShoppingBag, label: "Premios", sub: "Ver", color: "#3b82f6", bg: "bg-blue-500/10", route: '/dashboard/catalog' },
                         { icon: Tag, label: "Ofertas", sub: "Ver", color: "#f59e0b", bg: "bg-amber-500/10", route: '/dashboard/promotions' },
-                        { icon: Award, label: "Tiers", sub: "Ver", color: "#10b981", bg: "bg-emerald-500/10", route: '/tiers' },
+                        { icon: Award, label: "Niveles", sub: "Ver", color: "#10b981", bg: "bg-emerald-500/10", route: '/tiers' },
                     ].map((item, idx) => (
                         <AnimatedButton 
                             key={idx} 

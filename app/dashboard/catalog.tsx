@@ -153,7 +153,8 @@ export default function CatalogScreen() {
                     await supabase.from('transactions').insert([{
                         customer_id: customerData.id,
                         points_earned: -reward.pointsCost,
-                        description: `Canje App: ${reward.name}`
+                        description: `Canje App: ${reward.name}`,
+                        type: 'Redemption'
                     }]);
 
                 } catch (err: any) {

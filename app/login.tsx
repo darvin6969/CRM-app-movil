@@ -176,7 +176,7 @@ export default function LoginScreen() {
         try {
             const cleanEmail = email.trim().toLowerCase();
             const { error: resetError } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
-                redirectTo: 'crm-mobile-app://reset-password',
+                redirectTo: makeRedirectUri({ path: 'reset-password' }),
             });
             if (resetError) throw resetError;
             setError('Se ha enviado un correo para restablecer tu contraseña');

@@ -86,6 +86,13 @@ export default function ProfileScreen() {
             const response = await fetch(uri);
             const blob = await response.blob();
 
+            // Limitar a 5 MB (5 * 1024 * 1024 bytes)
+            if (blob.size > 5 * 1024 * 1024) {
+                Alert.alert("Imagen muy pesada", "Por favor, elige una imagen que pese menos de 5MB.");
+                setIsUploading(false);
+                return;
+            }
+
             const { error: uploadError } = await supabase.storage
                 .from('avatars')
                 .upload(filePath, blob);

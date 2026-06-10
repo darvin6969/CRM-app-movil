@@ -1,6 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
 import Constants from 'expo-constants';
 import { supabase } from './supabase';
 
@@ -36,12 +36,16 @@ export async function registerForPushNotificationsAsync() {
       console.log('Failed to get push token for push notification!');
       return;
     }
-    
-    // El projectId viene del app.json
-    const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
-    
-    token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-    console.log('Push Token Generado:', token);
+
+    try {
+        // El projectId viene del app.json
+        const projectId = 'e1cc5fda-1fcd-4628-a2e3-383069f0f126';
+        
+        token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+        console.log('Push Token Generado:', token);
+    } catch (e: any) {
+        console.log('Push Token Error (Silent):', e.message || String(e));
+    }
   } else {
     console.log('Must use physical device for Push Notifications');
   }
@@ -69,4 +73,32 @@ export async function savePushToken(token: string) {
     } catch (err) {
         console.error('Error en savePushToken:', err);
     }
+}
+
+
+export async function scheduleInactivityReminder() {
+  try {
+    // Primero cancelamos todas las notificaciones programadas previas
+    await Notifications.cancelAllScheduledNotificationsAsync();
+
+    // Programar una nueva notificación
+    // Para pruebas iniciales: 60 segundos
+    const triggerInSeconds = 60;
+
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: "¡Te extrañamos en Quantica! 🎀",
+        body: "No olvides que tienes puntos acumulados listos para canjear por premios.",
+        sound: true,
+      },
+      trigger: {
+        seconds: triggerInSeconds,
+        repeats: false, // Sólo una vez, si entra de nuevo se reprogramará
+      },
+    });
+    
+    console.log('Notificación de inactividad programada en ' + triggerInSeconds + ' segundos');
+  } catch (err) {
+    console.error('Error programando la notificación de inactividad:', err);
+  }
 }

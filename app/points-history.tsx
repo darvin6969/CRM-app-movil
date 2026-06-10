@@ -58,7 +58,7 @@ export default function PointsHistoryScreen() {
 
                     // Calculate total earned
                     const earned = mappedData
-                        .filter((t: any) => t.type !== 'Redemption')
+                        .filter((t: any) => t.type !== 'Redemption' && t.pointsEarned > 0)
                         .reduce((acc: number, t: any) => acc + t.pointsEarned, 0);
                     setTotalEarned(earned);
                 }
@@ -79,9 +79,9 @@ export default function PointsHistoryScreen() {
         if (activeFilter === 'Todo') {
             setFilteredTransactions(transactions);
         } else if (activeFilter === 'Ganados') {
-            setFilteredTransactions(transactions.filter(t => t.type !== 'Redemption'));
+            setFilteredTransactions(transactions.filter(t => t.type !== 'Redemption' && t.pointsEarned > 0));
         } else {
-            setFilteredTransactions(transactions.filter(t => t.type === 'Redemption'));
+            setFilteredTransactions(transactions.filter(t => t.type === 'Redemption' || t.pointsEarned < 0));
         }
     }, [activeFilter, transactions]);
 
@@ -91,7 +91,7 @@ export default function PointsHistoryScreen() {
     };
 
     const renderItem = ({ item }: { item: Transaction }) => {
-        const isRedemption = item.type === 'Redemption';
+        const isRedemption = item.type === 'Redemption' || item.pointsEarned < 0;
         const date = new Date(item.date).toLocaleDateString();
         const time = new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -105,7 +105,7 @@ export default function PointsHistoryScreen() {
                     <View className="p-5 flex-row items-center">
                         <View className="flex-1">
                             <View className="flex-row items-center mb-1">
-                                <Clock color={isDark ? "#94a3b8" : "#64748b"} size={10} className="mr-1" />
+
                                 <Text className="text-slate-400 dark:text-slate-500 font-bold text-[8px] uppercase tracking-widest">{date} • {time}</Text>
                             </View>
                             <Text className="text-slate-900 dark:text-white font-black text-base tracking-tight leading-tight">
@@ -150,11 +150,8 @@ export default function PointsHistoryScreen() {
                             <Text className="text-slate-500 dark:text-slate-400 font-medium uppercase text-[10px] tracking-widest mt-0.5">Movimientos de Puntos</Text>
                         </View>
                     </View>
-                    
-                    <View className="bg-primary/20 p-3 rounded-2xl">
-                        <Award color="#8b5cf6" size={24} />
-                    </View>
                 </View>
+
 
                 {/* Summary Score */}
                 <View className="px-6 mt-4">
