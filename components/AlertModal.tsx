@@ -59,7 +59,8 @@ export const AlertModal: React.FC<AlertModalProps> = ({
         <Modal transparent visible={visible} animationType="none">
             <View className="flex-1 items-center justify-center px-6">
                 <Pressable 
-                    className="absolute inset-0 bg-black/60" 
+                    style={StyleSheet.absoluteFill}
+                    className="bg-black/60" 
                     onPress={onClose}
                 />
                 
@@ -75,7 +76,8 @@ export const AlertModal: React.FC<AlertModalProps> = ({
                     >
                         <TouchableOpacity 
                             onPress={onClose}
-                            className="absolute top-4 right-4 p-3 rounded-full bg-slate-100 dark:bg-white/5"
+                            style={{ zIndex: 50, elevation: 50 }}
+                            className="absolute top-4 right-4 p-3 rounded-full bg-slate-100 dark:bg-white/10"
                         >
                             <X size={20} color={isDark ? '#fff' : '#000'} />
                         </TouchableOpacity>
