@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, Animated, StyleSheet, Modal, TouchableOpacity } from 'react-native';
+import { View, Text, Animated, StyleSheet, Modal, TouchableOpacity, Pressable } from 'react-native';
 import { AlertCircle, AlertTriangle, Info, X } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import { AnimatedButton } from './AnimatedButton';
@@ -58,8 +58,9 @@ export const AlertModal: React.FC<AlertModalProps> = ({
     return (
         <Modal transparent visible={visible} animationType="none">
             <View className="flex-1 items-center justify-center px-6">
-                <View 
+                <Pressable 
                     className="absolute inset-0 bg-black/60" 
+                    onPress={onClose}
                 />
                 
                 <Animated.View 
@@ -70,8 +71,14 @@ export const AlertModal: React.FC<AlertModalProps> = ({
                     className="w-full max-w-sm"
                 >
                     <View 
-                        className="rounded-[40px] p-8 bg-white dark:bg-[#1a0b2e] border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden items-center"
+                        className="rounded-[40px] p-8 pt-10 bg-white dark:bg-[#1a0b2e] border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden items-center relative"
                     >
+                        <TouchableOpacity 
+                            onPress={onClose}
+                            className="absolute top-4 right-4 p-3 rounded-full bg-slate-100 dark:bg-white/5"
+                        >
+                            <X size={20} color={isDark ? '#fff' : '#000'} />
+                        </TouchableOpacity>
                         <View className={`${config.bg} p-6 rounded-[32px] mb-6 shadow-xl`}>
                             <Icon color={config.main} size={48} />
                         </View>
