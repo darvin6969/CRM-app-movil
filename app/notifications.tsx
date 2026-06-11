@@ -36,7 +36,7 @@ export default function NotificationsScreen() {
                 const { data, error } = await supabase
                     .from('notifications')
                     .select('*')
-                    .or(`user_id.eq.${session.user.id},user_id.is.null`)
+                    .eq('user_id', session.user.id)
                     .order('created_at', { ascending: false });
                 
                 if (error) throw error;
