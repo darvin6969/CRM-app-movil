@@ -86,9 +86,9 @@ export const QRModal: React.FC<QRModalProps> = ({ visible, onClose, qrValue, use
                                     color="#000"
                                     backgroundColor="transparent"
                                     logo={require('../assets/quantica-logo-small.png')}
-                                    logoSize={46}
-                                    logoBackgroundColor="white"
-                                    logoBorderRadius={12}
+                                    logoSize={60}
+                                    logoBackgroundColor="transparent"
+                                    logoBorderRadius={0}
                                 />
                             ) : (
                                 <View style={{ width: 200, height: 200, alignItems: 'center', justifyContent: 'center' }}>
@@ -102,16 +102,14 @@ export const QRModal: React.FC<QRModalProps> = ({ visible, onClose, qrValue, use
 
                     {/* Referral Info */}
                     <View className="items-center mb-8">
-                        <View className="bg-primary/10 px-5 py-2.5 rounded-2xl border border-primary/20 mb-4 flex-row items-center justify-center">
-                            <Text className="text-primary font-black text-sm uppercase tracking-widest">
-                                {(() => {
-                                    const words = userName.trim().split(/\s+/);
-                                    if (words.length >= 4) return `${words[0]} ${words[2]}`; // Juan Pablo Perez Gomez -> Juan Perez
-                                    if (words.length === 3) return `${words[0]} ${words[1]}`; // Juan Perez Gomez -> Juan Perez
-                                    return words.slice(0, 2).join(' '); // Juan Perez -> Juan Perez
-                                })()}
-                            </Text>
-                        </View>
+                        <Text className="text-primary font-black text-base uppercase tracking-widest mb-3 text-center">
+                            {(() => {
+                                const words = userName.trim().split(/\s+/);
+                                if (words.length >= 4) return `${words[0]} ${words[2]}`; // Juan Pablo Perez Gomez -> Juan Perez
+                                if (words.length === 3) return `${words[0]} ${words[1]}`; // Juan Perez Gomez -> Juan Perez
+                                return words.slice(0, 2).join(' '); // Juan Perez -> Juan Perez
+                            })()}
+                        </Text>
                         <Text className="text-slate-500 dark:text-slate-400 text-center font-semibold text-sm px-4 leading-5">
                             Muestra este código al vendedor para acumular puntos.
                         </Text>
