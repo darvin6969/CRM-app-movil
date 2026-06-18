@@ -86,8 +86,10 @@ export const QRModal: React.FC<QRModalProps> = ({ visible, onClose, qrValue, use
                                     color="#000"
                                     backgroundColor="transparent"
                                     logo={require('../assets/quantica-logo-small.png')}
-                                    logoSize={75}
-                                    logoBackgroundColor="transparent"
+                                    logoSize={80}
+                                    logoBackgroundColor="white"
+                                    logoMargin={2}
+                                    logoBorderRadius={40}
                                 />
                             ) : (
                                 <View style={{ width: 200, height: 200, alignItems: 'center', justifyContent: 'center' }}>
