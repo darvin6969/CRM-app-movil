@@ -90,7 +90,12 @@ export const QRModal: React.FC<QRModalProps> = ({ visible, onClose, qrValue, use
                     <View className="items-center mb-8">
                         <View className="bg-primary/10 px-5 py-2.5 rounded-2xl border border-primary/20 mb-4 flex-row items-center justify-center">
                             <Text className="text-primary font-black text-sm uppercase tracking-widest">
-                                {userName.split(' ').slice(0, 2).join(' ')}
+                                {(() => {
+                                    const words = userName.trim().split(/\s+/);
+                                    if (words.length >= 4) return `${words[0]} ${words[2]}`; // Juan Pablo Perez Gomez -> Juan Perez
+                                    if (words.length === 3) return `${words[0]} ${words[1]}`; // Juan Perez Gomez -> Juan Perez
+                                    return words.slice(0, 2).join(' '); // Juan Perez -> Juan Perez
+                                })()}
                             </Text>
                         </View>
                         <Text className="text-slate-500 dark:text-slate-400 text-center font-semibold text-sm px-4 leading-5">
