@@ -1,9 +1,8 @@
 import React from 'react';
-import { View, Text, Modal, TouchableOpacity, ViewStyle } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, Share } from 'react-native';
 import { BlurView } from 'expo-blur';
 import QRCode from 'react-native-qrcode-svg';
 import { X, Share2 } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 
 interface QRModalProps {
     visible: boolean;
@@ -14,6 +13,17 @@ interface QRModalProps {
 }
 
 export const QRModal: React.FC<QRModalProps> = ({ visible, onClose, qrValue, userName, isDark }) => {
+    
+    const handleShare = async () => {
+        try {
+            await Share.share({
+                message: `¡Hola! Únete a nuestro club de beneficios y gana premios increíbles. 🎁\n\nUsa mi código exclusivo al registrarte o en tu próxima compra:\n👉 *${qrValue}*`,
+            });
+        } catch (error) {
+            console.error('Error al compartir:', error);
+        }
+    };
+
     return (
         <Modal
             animationType="slide"
@@ -105,6 +115,7 @@ export const QRModal: React.FC<QRModalProps> = ({ visible, onClose, qrValue, use
 
                     {/* Action Button */}
                     <TouchableOpacity 
+                        onPress={handleShare}
                         className="w-full bg-primary h-14 rounded-2xl flex-row items-center justify-center shadow-lg shadow-primary/30 active:scale-95 transition-transform"
                     >
                         <Share2 size={18} color="white" />
