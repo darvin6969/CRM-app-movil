@@ -89,7 +89,9 @@ export const QRModal: React.FC<QRModalProps> = ({ visible, onClose, qrValue, use
                     {/* Referral Info */}
                     <View className="items-center mb-8">
                         <View className="bg-primary/10 px-5 py-2.5 rounded-2xl border border-primary/20 mb-4 flex-row items-center justify-center">
-                            <Text className="text-primary font-black text-sm uppercase tracking-widest">{qrValue}</Text>
+                            <Text className="text-primary font-black text-sm uppercase tracking-widest">
+                                {userName.split(' ').slice(0, 2).join(' ')}
+                            </Text>
                         </View>
                         <Text className="text-slate-500 dark:text-slate-400 text-center font-semibold text-sm px-4 leading-5">
                             Muestra este código al vendedor para acumular puntos.
