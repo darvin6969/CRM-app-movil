@@ -309,59 +309,79 @@ export default function PromotionsScreen() {
                     )}
 
                     {/* Promotions List */}
-                    <View className="px-6 pb-24">
-                        {filteredPromos.map(promo => {
-                            if (activeCategory === 'Todo' && promo.type === 'featured') return null;
-                            
-                            return (
-                                <AnimatedButton key={promo.id} className="mb-6">
-                                    <BlurView 
-                                        intensity={isDark ? 20 : 60} 
-                                        tint={isDark ? "dark" : "light"}
-                                        className="rounded-[36px] overflow-hidden border border-white/20 dark:border-white/10 shadow-lg"
-                                    >
-                                        <View className="flex-row items-center p-6">
-                                            {/* Icon/Image Box */}
-                                            <View className="bg-primary/10 dark:bg-primary/20 p-5 rounded-[24px] mr-5">
+                    <View className="px-6 pb-24 mt-4">
+                        {isLoading ? (
+                            <View className="mt-2">
+                                <View className="mb-6"><Skeleton width="100%" height={110} style={{ borderRadius: 36 }} isDark={isDark} /></View>
+                                <View className="mb-6"><Skeleton width="100%" height={110} style={{ borderRadius: 36 }} isDark={isDark} /></View>
+                                <View className="mb-6"><Skeleton width="100%" height={110} style={{ borderRadius: 36 }} isDark={isDark} /></View>
+                            </View>
+                        ) : filteredPromos.length === 0 ? (
+                            <View className="items-center justify-center py-10 mt-8">
+                                <View className="bg-primary/10 dark:bg-primary/20 p-6 rounded-full mb-6 border border-primary/20">
+                                    <Gift size={48} color={isDark ? "#a78bfa" : "#8b5cf6"} strokeWidth={1.5} />
+                                </View>
+                                <Text className="text-slate-900 dark:text-white font-black text-xl mb-3 text-center tracking-tight">
+                                    Pronto habrán sorpresas
+                                </Text>
+                                <Text className="text-slate-500 dark:text-slate-400 text-sm text-center px-6 leading-6 font-medium">
+                                    Estamos preparando cupones y descuentos exclusivos. ¡Mantente atento a tus notificaciones!
+                                </Text>
+                            </View>
+                        ) : (
+                            filteredPromos.map(promo => {
+                                if (activeCategory === 'Todo' && promo.type === 'featured') return null;
+                                
+                                return (
+                                    <AnimatedButton key={promo.id} className="mb-6">
+                                        <BlurView 
+                                            intensity={isDark ? 20 : 60} 
+                                            tint={isDark ? "dark" : "light"}
+                                            className="rounded-[36px] overflow-hidden border border-white/20 dark:border-white/10 shadow-lg"
+                                        >
+                                            <View className="flex-row items-center p-6">
+                                                {/* Icon/Image Box */}
+                                                <View className="bg-primary/10 dark:bg-primary/20 p-5 rounded-[24px] mr-5">
+                                                    {promo.type === 'coupon' ? (
+                                                        <Tag color="#8b5cf6" size={28} />
+                                                    ) : promo.type === 'event' ? (
+                                                        <Calendar color="#8b5cf6" size={28} />
+                                                    ) : (
+                                                        <Sparkles color="#8b5cf6" size={28} />
+                                                    )}
+                                                </View>
+
+                                                <View className="flex-1">
+                                                    <View className="flex-row items-center mb-1">
+                                                        <Clock color={isDark ? "#94a3b8" : "#64748b"} size={10} className="mr-1" />
+                                                        <Text className="text-slate-400 dark:text-slate-500 font-bold text-[8px] uppercase tracking-widest">Oferta Limitada</Text>
+                                                    </View>
+                                                    <Text className="text-slate-900 dark:text-white font-black text-xl tracking-tight leading-tight mb-1">
+                                                        {promo.title}
+                                                    </Text>
+                                                    <Text className="text-slate-500 dark:text-slate-400 text-[10px] font-medium leading-4" numberOfLines={2}>
+                                                        {promo.description}
+                                                    </Text>
+                                                </View>
+
                                                 {promo.type === 'coupon' ? (
-                                                    <Tag color="#8b5cf6" size={28} />
-                                                ) : promo.type === 'event' ? (
-                                                    <Calendar color="#8b5cf6" size={28} />
+                                                    <TouchableOpacity 
+                                                        onPress={() => handleCopy(promo.couponCode || '')}
+                                                        className="bg-primary shadow-lg shadow-primary/20 p-3.5 rounded-2xl ml-2"
+                                                    >
+                                                        <Copy color="white" size={16} />
+                                                    </TouchableOpacity>
                                                 ) : (
-                                                    <Sparkles color="#8b5cf6" size={28} />
+                                                    <View className="bg-slate-100 dark:bg-white/5 p-3 rounded-2xl ml-2">
+                                                        <ChevronRight color={isDark ? "#94a3b8" : "#64748b"} size={20} />
+                                                    </View>
                                                 )}
                                             </View>
-
-                                            <View className="flex-1">
-                                                <View className="flex-row items-center mb-1">
-                                                    <Clock color={isDark ? "#94a3b8" : "#64748b"} size={10} className="mr-1" />
-                                                    <Text className="text-slate-400 dark:text-slate-500 font-bold text-[8px] uppercase tracking-widest">Oferta Limitada</Text>
-                                                </View>
-                                                <Text className="text-slate-900 dark:text-white font-black text-xl tracking-tight leading-tight mb-1">
-                                                    {promo.title}
-                                                </Text>
-                                                <Text className="text-slate-500 dark:text-slate-400 text-[10px] font-medium leading-4" numberOfLines={2}>
-                                                    {promo.description}
-                                                </Text>
-                                            </View>
-
-                                            {promo.type === 'coupon' ? (
-                                                <TouchableOpacity 
-                                                    onPress={() => handleCopy(promo.couponCode || '')}
-                                                    className="bg-primary shadow-lg shadow-primary/20 p-3.5 rounded-2xl ml-2"
-                                                >
-                                                    <Copy color="white" size={16} />
-                                                </TouchableOpacity>
-                                            ) : (
-                                                <View className="bg-slate-100 dark:bg-white/5 p-3 rounded-2xl ml-2">
-                                                    <ChevronRight color={isDark ? "#94a3b8" : "#64748b"} size={20} />
-                                                </View>
-                                            )}
-                                        </View>
-                                    </BlurView>
-                                </AnimatedButton>
-                            );
-                        })}
+                                        </BlurView>
+                                    </AnimatedButton>
+                                );
+                            })
+                        )}
                     </View>
                 </ScrollView>
             </SafeAreaView>
