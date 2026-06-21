@@ -446,9 +446,9 @@ export default function DashboardScreen() {
                                 <View className={`${item.bg} p-2.5 rounded-2xl`}>
                                     <item.icon color={item.color} size={18} />
                                 </View>
-                                <View>
-                                    <Text className="text-slate-900 dark:text-white font-black text-xs tracking-tight">{item.label}</Text>
-                                    <Text className="text-slate-400 font-bold text-[8px] uppercase tracking-widest">{item.sub}</Text>
+                                <View className="bg-transparent">
+                                    <Text className="text-slate-900 dark:text-white font-black text-xs tracking-tight bg-transparent">{item.label}</Text>
+                                    <Text className="text-slate-400 font-bold text-[8px] uppercase tracking-widest bg-transparent">{item.sub}</Text>
                                 </View>
                             </BlurView>
                         </AnimatedButton>
