@@ -442,7 +442,8 @@ export default function DashboardScreen() {
                             className="w-[48%]"
                             onPress={() => item.route && router.push(item.route as any)}
                         >
-                            <BlurView intensity={isDark ? 15 : 40} tint={isDark ? "dark" : "light"} className="p-4 rounded-[28px] border border-white/20 dark:border-white/10 overflow-hidden flex-row items-center gap-3 shadow-sm">
+                            <View className="p-4 rounded-[28px] border border-white/20 dark:border-white/10 overflow-hidden flex-row items-center gap-3 shadow-sm">
+                                <BlurView intensity={isDark ? 15 : 40} tint={isDark ? "dark" : "light"} className="absolute top-0 left-0 right-0 bottom-0" />
                                 <View className={`${item.bg} p-2.5 rounded-2xl`}>
                                     <item.icon color={item.color} size={18} />
                                 </View>
@@ -450,7 +451,7 @@ export default function DashboardScreen() {
                                     <Text className="text-slate-900 dark:text-white font-black text-xs tracking-tight bg-transparent">{item.label}</Text>
                                     <Text className="text-slate-400 font-bold text-[8px] uppercase tracking-widest bg-transparent">{item.sub}</Text>
                                 </View>
-                            </BlurView>
+                            </View>
                         </AnimatedButton>
                     ))}
                 </View>
