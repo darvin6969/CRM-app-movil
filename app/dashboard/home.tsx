@@ -449,7 +449,7 @@ export default function DashboardScreen() {
                                 </View>
                                 <View className="bg-transparent">
                                     <Text className="text-slate-900 dark:text-white font-black text-xs tracking-tight bg-transparent">{item.label}</Text>
-                                    <Text className="text-slate-400 font-bold text-[8px] uppercase tracking-widest bg-transparent">{item.sub}</Text>
+                                    <Text className="text-slate-400 font-bold text-[8px] uppercase tracking-wider bg-transparent">{item.sub}</Text>
                                 </View>
                             </View>
                         </AnimatedButton>
